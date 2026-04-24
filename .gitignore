@@ -1,0 +1,53 @@
+# ── macOS ────────────────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ── IDEs ─────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.iml
+
+# ── Flutter / Dart ────────────────────────────────────────────────────────────
+**/.dart_tool/
+**/.pub-cache/
+**/.pub/
+**/build/
+**/*.g.dart
+**/*.freezed.dart
+**/*.router.dart
+**/*.gr.dart
+**/pubspec.lock
+
+# ── Python ───────────────────────────────────────────────────────────────────
+services/api/.venv/
+services/api/.env
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+*.pyw
+.Python
+*.egg-info/
+dist/
+.pytest_cache/
+
+# ── Environment / Secrets ────────────────────────────────────────────────────
+.env
+!.env.example
+!apps/aqua_sentinel/.env
+
+# ── Android native build ─────────────────────────────────────────────────────
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+**/android/.gradle/
+**/android/local.properties
+**/android/key.properties
+
+# ── iOS native build ─────────────────────────────────────────────────────────
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Runner/GeneratedPluginRegistrant.*

@@ -1,0 +1,61 @@
+name: aqua_sentinel
+description: "AquaSentinel - EU Space for Water | 11th CASSINI Hackathon"
+version: 1.0.0+1
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Local packages
+  space_data:
+    path: ../../packages/space_data
+
+  # Map
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
+  # 3D Globe
+  flutter_globe_3d: ^2.2.5
+  vector_math: ^2.2.0
+
+  # State management
+  flutter_riverpod: ^2.6.1
+  hooks_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # HTTP
+  dio: ^5.8.0+1
+
+  # Routing
+  auto_route: ^9.2.2
+
+  # Charts
+  fl_chart: ^0.70.2
+
+  # UI
+  phosphor_flutter: ^2.1.0
+  flutter_animate: ^4.5.2
+  google_fonts: ^6.2.1
+
+  # Config
+  flutter_dotenv: ^5.2.1
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.13
+  riverpod_generator: ^2.6.3
+  auto_route_generator: ^9.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
+    - assets/earth_texture.png
+    - .env
