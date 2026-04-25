@@ -1,8 +1,12 @@
+import logging
+
 from fastapi import APIRouter, Query, HTTPException
 from app.models.environmental_analysis import AreaAnalysis
+from app.services.copernicus_flood_data import copernicus_flood_service
 from app.services.mock_satellite_data import mock_satellite_service
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 _WATER_BODY_IDS = {
     "inn-river",
@@ -34,6 +38,13 @@ async def get_analysis_by_water_body(water_body_id: str) -> AreaAnalysis:
             status_code=404,
             detail=f"Water body '{water_body_id}' not found. Available IDs: {', '.join(_WATER_BODY_IDS)}",
         )
+
+    if water_body_id == "inn-river":
+        try:
+            return await copernicus_flood_service.get_inn_river_analysis()
+        except Exception as exc:
+            # Preserve the demo flow if credentials are missing or Copernicus is unavailable.
+            logger.warning("Falling back to mock Inn River analysis: %s", exc)
 
     result = mock_satellite_service.get_analysis_by_water_body(water_body_id)
     if result is None:
