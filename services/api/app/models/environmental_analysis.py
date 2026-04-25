@@ -49,6 +49,7 @@ class PreventionMeasure(BaseModel):
     feasibility: str
     estimated_cost: str
     timeline: str
+    cost_if_nothing_done: str
 
 
 class EcosystemImpact(BaseModel):

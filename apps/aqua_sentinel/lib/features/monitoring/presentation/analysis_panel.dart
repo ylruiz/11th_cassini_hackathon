@@ -557,28 +557,70 @@ class _PreventionCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.greenAccent.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                PhosphorIcon(PhosphorIconsRegular.currencyEur,
-                    color: Colors.white38, size: 12),
-                const SizedBox(width: 6),
-                Text(
-                  measure.estimatedCost,
-                  style: GoogleFonts.spaceGrotesk(
-                    color: Colors.greenAccent,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+          Row(
+            children: [
+              Flexible(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: Colors.greenAccent.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      PhosphorIcon(PhosphorIconsRegular.currencyEur,
+                          color: Colors.white38, size: 13),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          measure.estimatedCost,
+                          style: GoogleFonts.spaceGrotesk(
+                            color: Colors.greenAccent,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border:
+                        Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      PhosphorIcon(PhosphorIconsRegular.warning,
+                          color: Colors.orange, size: 13),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          measure.costIfNothingDone,
+                          style: GoogleFonts.spaceGrotesk(
+                            color: Colors.orange,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -759,7 +801,8 @@ class _ImpactCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _ImpactMetric(label: 'Recovery', value: impact.recoveryPotential),
+                child: _ImpactMetric(
+                    label: 'Recovery', value: impact.recoveryPotential),
               ),
             ],
           ),

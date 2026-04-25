@@ -15,20 +15,20 @@ class IssueSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: const Color(0xFF060E1A),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'PICK A WATER ISSUE',
+            'WATER SCENARIOS',
             style: GoogleFonts.spaceGrotesk(
-              color: Colors.white38,
-              fontSize: 9,
+              color: Colors.white70,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
-              letterSpacing: 1.5,
+              letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(

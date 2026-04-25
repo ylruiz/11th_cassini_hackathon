@@ -194,6 +194,7 @@ class PreventionMeasure {
   final String feasibility;
   final String estimatedCost;
   final String timeline;
+  final String costIfNothingDone;
 
   PreventionMeasure({
     required this.problemId,
@@ -201,6 +202,7 @@ class PreventionMeasure {
     required this.feasibility,
     required this.estimatedCost,
     required this.timeline,
+    required this.costIfNothingDone,
   });
 
   factory PreventionMeasure.fromJson(Map<String, dynamic> json) {
@@ -210,6 +212,7 @@ class PreventionMeasure {
       feasibility: json['feasibility'] as String,
       estimatedCost: json['estimated_cost'] as String,
       timeline: json['timeline'] as String,
+      costIfNothingDone: json['cost_if_nothing_done'] as String,
     );
   }
 }
@@ -310,16 +313,10 @@ class WaterBodyInfo {
 
 const waterBodies = [
   WaterBodyInfo(
-    id: 'lake-balaton',
-    name: 'Lake Balaton',
-    latitude: 46.85,
-    longitude: 17.73,
-  ),
-  WaterBodyInfo(
-    id: 'danube-delta',
-    name: 'Danube Delta',
-    latitude: 45.15,
-    longitude: 29.65,
+    id: 'inn-river',
+    name: 'Inn River',
+    latitude: 47.26,
+    longitude: 11.41,
   ),
   WaterBodyInfo(
     id: 'lake-ohrid',
@@ -328,15 +325,51 @@ const waterBodies = [
     longitude: 20.72,
   ),
   WaterBodyInfo(
-    id: 'ebro-reservoir',
-    name: 'Ebro Reservoir',
-    latitude: 42.98,
-    longitude: -3.98,
+    id: 'maritsa-river',
+    name: 'Maritsa River',
+    latitude: 42.07,
+    longitude: 25.32,
+  ),
+  WaterBodyInfo(
+    id: 'glomma-river',
+    name: 'Glomma River',
+    latitude: 59.91,
+    longitude: 10.27,
+  ),
+  WaterBodyInfo(
+    id: 'tisza-river',
+    name: 'Tisza River',
+    latitude: 47.59,
+    longitude: 21.12,
+  ),
+  WaterBodyInfo(
+    id: 'vistula-river',
+    name: 'Vistula River',
+    latitude: 52.64,
+    longitude: 18.96,
+  ),
+  WaterBodyInfo(
+    id: 'po-river',
+    name: 'Po River',
+    latitude: 45.44,
+    longitude: 9.14,
   ),
   WaterBodyInfo(
     id: 'maas-river',
     name: 'Maas River',
     latitude: 51.92,
     longitude: 4.47,
+  ),
+  WaterBodyInfo(
+    id: 'danube-delta',
+    name: 'Danube Delta',
+    latitude: 45.15,
+    longitude: 29.65,
+  ),
+  WaterBodyInfo(
+    id: 'guadalquivir-river',
+    name: 'Guadalquivir River',
+    latitude: 37.39,
+    longitude: -5.99,
   ),
 ];

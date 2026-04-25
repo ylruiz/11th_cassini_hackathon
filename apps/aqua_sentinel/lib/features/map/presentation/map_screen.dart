@@ -81,7 +81,8 @@ class _MapViewState extends ConsumerState<MapView> {
         },
         child: Container(
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF00D4FF) : const Color(0xFF0D1B2A),
+            color:
+                isSelected ? const Color(0xFF00D4FF) : const Color(0xFF0D1B2A),
             shape: BoxShape.circle,
             border: Border.all(color: const Color(0xFF00D4FF), width: 2),
             boxShadow: [
@@ -104,7 +105,9 @@ class _MapViewState extends ConsumerState<MapView> {
 
   void _handleMapTap(LatLng point) {
     for (final body in waterBodies) {
-      if (_calculateDistance(point.latitude, point.longitude, body.latitude, body.longitude) < 100) {
+      if (_calculateDistance(
+              point.latitude, point.longitude, body.latitude, body.longitude) <
+          100) {
         ref.read(selectedWaterBodyProvider.notifier).state = body;
         return;
       }
@@ -112,7 +115,8 @@ class _MapViewState extends ConsumerState<MapView> {
     ref.read(selectedWaterBodyProvider.notifier).state = null;
   }
 
-  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+  double _calculateDistance(
+      double lat1, double lon1, double lat2, double lon2) {
     const p = 0.017453292519943295;
     final a = 0.5 -
         _cos((lat2 - lat1) * p) / 2 +
@@ -139,7 +143,9 @@ class _MapViewState extends ConsumerState<MapView> {
   double _sqrt(double x) {
     if (x <= 0) return 0;
     double g = x / 2;
-    for (int i = 0; i < 10; i++) g = (g + x / g) / 2;
+    for (int i = 0; i < 10; i++) {
+      g = (g + x / g) / 2;
+    }
     return g;
   }
 }

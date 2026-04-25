@@ -2,8 +2,11 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../../alerts/data/alarms_provider.dart';
+import '../../alerts/models/alarm_model.dart';
 import '../../map/presentation/map_screen.dart';
 import '../../simulator/presentation/simulator_screen.dart';
+import '../../water_quality/presentation/water_quality_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_globe_3d/flutter_globe_3d.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -22,6 +25,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   late final EarthController _earthController;
   int _selectedNav = 0;
   bool _sidebarExpanded = true;
+  bool _alarmsPanelOpen = false;
 
   @override
   void initState() {
@@ -46,37 +50,100 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final isWide = size.width > 800;
+    final activeAlarms = ref.watch(activeAlarmsProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFF050505),
       drawer: isWide ? null : _buildDrawer(context),
-      body: isWide
-          ? Row(children: [
-              _Sidebar(
-                selected: _selectedNav,
-                expanded: _sidebarExpanded,
-                onSelect: _onNavSelect,
-                onToggle: () =>
-                    setState(() => _sidebarExpanded = !_sidebarExpanded),
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              Expanded(
+                child: isWide
+                    ? Row(children: [
+                        _Sidebar(
+                          selected: _selectedNav,
+                          expanded: _sidebarExpanded,
+                          onSelect: _onNavSelect,
+                          onToggle: () => setState(
+                              () => _sidebarExpanded = !_sidebarExpanded),
+                        ),
+                        Expanded(
+                            child: _buildMain(context, isWide, activeAlarms)),
+                      ])
+                    : _buildMain(context, isWide, activeAlarms),
               ),
-              Expanded(child: _buildMain(context, isWide)),
-            ])
-          : _buildMain(context, isWide),
+            ],
+          ),
+          if (_alarmsPanelOpen)
+            _AlarmsPanel(
+              onClose: () => setState(() => _alarmsPanelOpen = false),
+              onSelectAlarm: (alarm) {
+                setState(() {
+                  _alarmsPanelOpen = false;
+                  _selectedNav = 1;
+                });
+              },
+            ),
+        ],
+      ),
     );
   }
 
-  Widget _buildMain(BuildContext context, bool isWide) {
+  Widget _buildMain(
+      BuildContext context, bool isWide, List<Alarm> activeAlarms) {
     return IndexedStack(
       index: _selectedNav,
       children: [
         Column(
           children: [
-            _TopBar(isWide: isWide),
+            _TopBar(
+              isWide: isWide,
+              alarmCount: activeAlarms.length,
+              onBellPressed: () =>
+                  setState(() => _alarmsPanelOpen = !_alarmsPanelOpen),
+            ),
+            const _StatsBar(),
             Expanded(child: _GlobeHero(controller: _earthController)),
           ],
         ),
-        const MapView(),
-        const SimulatorView(),
+        Column(
+          children: [
+            _TopBar(
+              isWide: isWide,
+              alarmCount: activeAlarms.length,
+              onBellPressed: () =>
+                  setState(() => _alarmsPanelOpen = !_alarmsPanelOpen),
+            ),
+            const _StatsBar(),
+            Expanded(child: const MapView()),
+          ],
+        ),
+        Column(
+          children: [
+            _TopBar(
+              isWide: isWide,
+              alarmCount: activeAlarms.length,
+              onBellPressed: () =>
+                  setState(() => _alarmsPanelOpen = !_alarmsPanelOpen),
+            ),
+            const _StatsBar(),
+            Expanded(child: const SimulatorView()),
+          ],
+        ),
+        Column(
+          children: [
+            _TopBar(
+              isWide: isWide,
+              alarmCount: activeAlarms.length,
+              onBellPressed: () =>
+                  setState(() => _alarmsPanelOpen = !_alarmsPanelOpen),
+            ),
+            const _StatsBar(),
+            Expanded(child: const WaterQualityView()),
+          ],
+        ),
       ],
     );
   }
@@ -116,6 +183,7 @@ class _Sidebar extends StatelessWidget {
     (PhosphorIconsRegular.squaresFour, 'Dashboard'),
     (PhosphorIconsRegular.mapTrifold, 'Monitoring'),
     (PhosphorIconsRegular.slidersHorizontal, 'Simulation'),
+    (PhosphorIconsRegular.drop, 'Water Quality'),
   ];
 
   static const _bottom = [
@@ -256,13 +324,19 @@ class _NavItem extends StatelessWidget {
 // ─── Top bar ─────────────────────────────────────────────────────────────────
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.isWide});
+  const _TopBar({
+    required this.isWide,
+    required this.alarmCount,
+    required this.onBellPressed,
+  });
   final bool isWide;
+  final int alarmCount;
+  final VoidCallback onBellPressed;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 56,
+      height: 72,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: const BoxDecoration(
         color: Color(0xFF060E1A),
@@ -319,7 +393,11 @@ class _TopBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          _IconBadge(icon: PhosphorIconsRegular.bell, badge: '2'),
+          _IconBadge(
+            icon: PhosphorIconsRegular.bell,
+            badge: alarmCount > 0 ? '$alarmCount' : null,
+            onPressed: onBellPressed,
+          ),
           const SizedBox(width: 8),
           _IconBadge(icon: PhosphorIconsRegular.userCircle, badge: null),
         ],
@@ -329,9 +407,14 @@ class _TopBar extends StatelessWidget {
 }
 
 class _IconBadge extends StatelessWidget {
-  const _IconBadge({required this.icon, required this.badge});
+  const _IconBadge({
+    required this.icon,
+    required this.badge,
+    this.onPressed,
+  });
   final IconData icon;
   final String? badge;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -339,7 +422,7 @@ class _IconBadge extends StatelessWidget {
       children: [
         IconButton(
           icon: Icon(icon, color: Colors.white54, size: 20),
-          onPressed: () {},
+          onPressed: onPressed ?? () {},
           padding: const EdgeInsets.all(6),
           constraints: const BoxConstraints(),
         ),
@@ -367,22 +450,31 @@ class _IconBadge extends StatelessWidget {
 
 // ─── Globe hero ──────────────────────────────────────────────────────────────
 
-class _GlobeHero extends StatefulWidget {
+class _GlobeHero extends ConsumerStatefulWidget {
   const _GlobeHero({required this.controller});
   final EarthController controller;
 
   @override
-  State<_GlobeHero> createState() => _GlobeHeroState();
+  ConsumerState<_GlobeHero> createState() => _GlobeHeroState();
 }
 
-class _GlobeHeroState extends State<_GlobeHero> {
+class _GlobeHeroState extends ConsumerState<_GlobeHero> {
   double _baseZoom = 1.0;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.setCameraFocus(45.0, 15.0);
+    widget.controller.setZoom(1.0);
+  }
 
   void _zoomIn() => widget.controller.setZoom(widget.controller.zoom + 0.25);
   void _zoomOut() => widget.controller.setZoom(widget.controller.zoom - 0.25);
 
   @override
   Widget build(BuildContext context) {
+    final activeAlarms = ref.watch(activeAlarmsProvider);
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: DecoratedBox(
@@ -425,17 +517,22 @@ class _GlobeHeroState extends State<_GlobeHero> {
                       onScaleUpdate: (details) =>
                           widget.controller.setZoom(_baseZoom * details.scale),
                       child: Center(
-                        child: AspectRatio(
-                          aspectRatio: 1,
-                          child: Earth3D(
-                            controller: widget.controller,
-                            texture:
-                                const AssetImage('assets/earth_texture.png'),
-                            initialScale: 1.0,
-                          ).animate().fadeIn(duration: 900.ms).scale(
-                              begin: const Offset(0.8, 0.8),
-                              duration: 900.ms,
-                              curve: Curves.easeOutBack),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: Earth3D(
+                              controller: widget.controller,
+                              texture:
+                                  const AssetImage('assets/earth_texture.png'),
+                              initialScale: 1,
+                            ).animate().fadeIn(duration: 900.ms).scale(
+                                begin: const Offset(0.8, 0.8),
+                                duration: 900.ms,
+                                curve: Curves.easeOutBack),
+                          ),
                         ),
                       ),
                     ),
@@ -449,7 +546,7 @@ class _GlobeHeroState extends State<_GlobeHero> {
             ),
             Positioned(
               right: 28,
-              bottom: 28,
+              bottom: 52,
               child: Column(
                 children: [
                   _ZoomButton(icon: PhosphorIconsRegular.plus, onTap: _zoomIn),
@@ -459,6 +556,11 @@ class _GlobeHeroState extends State<_GlobeHero> {
                 ],
               ),
             ),
+            const _RecentAlertsPanel(),
+            if (activeAlarms.isNotEmpty)
+              Positioned.fill(
+                child: _AlarmMarkersOverlay(alarms: activeAlarms),
+              ),
           ],
         ),
       ),
@@ -524,6 +626,10 @@ class _GridPainter extends CustomPainter {
 class _SpectralFeedHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now().toUtc();
+    final formattedDate =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} UTC';
+
     return Row(
       children: [
         Container(
@@ -563,6 +669,16 @@ class _SpectralFeedHeader extends StatelessWidget {
           ),
         ),
         const Spacer(),
+        Text(
+          formattedDate,
+          style: GoogleFonts.spaceGrotesk(
+            color: const Color(0xFF00D4FF),
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(width: 12),
         Text(
           'Sentinel-2 / Copernicus',
           style: GoogleFonts.inter(color: Colors.white38, fontSize: 11),
@@ -638,3 +754,623 @@ class _CoordChip extends StatelessWidget {
   }
 }
 
+class _RecentAlertsPanel extends ConsumerWidget {
+  const _RecentAlertsPanel();
+
+  Color _severityColor(AlarmSeverity severity) {
+    switch (severity) {
+      case AlarmSeverity.critical:
+        return const Color(0xFFFF4757);
+      case AlarmSeverity.high:
+        return const Color(0xFFFF9F43);
+      case AlarmSeverity.medium:
+        return const Color(0xFFFECA57);
+      case AlarmSeverity.low:
+        return const Color(0xFF54A0FF);
+    }
+  }
+
+  IconData _alarmTypeIcon(AlarmType type) {
+    switch (type) {
+      case AlarmType.flood:
+        return PhosphorIconsRegular.drop;
+      case AlarmType.waterQuality:
+        return PhosphorIconsRegular.drop;
+      case AlarmType.anomaly:
+        return PhosphorIconsRegular.chartLineUp;
+      case AlarmType.environmental:
+        return PhosphorIconsRegular.leaf;
+    }
+  }
+
+  String _formatTimeAgo(String createdAt) {
+    try {
+      final created = DateTime.parse(createdAt);
+      final now = DateTime.now();
+      final diff = now.difference(created);
+      if (diff.inHours > 24) {
+        return '${diff.inDays}d ago';
+      } else if (diff.inHours > 0) {
+        return '${diff.inHours}h ago';
+      } else {
+        return '${diff.inMinutes}m ago';
+      }
+    } catch (_) {
+      return '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final alarms = ref.watch(activeAlarmsProvider);
+    final recentAlarms = alarms.take(3).toList();
+
+    if (recentAlarms.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Positioned(
+      left: 20,
+      bottom: 20,
+      child: Container(
+        width: 280,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0D1B2A).withValues(alpha: 0.95),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white10),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF4757).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(PhosphorIconsRegular.bell,
+                          color: Color(0xFFFF4757), size: 10),
+                      const SizedBox(width: 4),
+                      Text(
+                        'RECENT ALERTS',
+                        style: GoogleFonts.spaceGrotesk(
+                          color: const Color(0xFFFF4757),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white10,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${alarms.length}',
+                    style: GoogleFonts.spaceGrotesk(
+                      color: Colors.white54,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ...recentAlarms.map((alarm) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: _severityColor(alarm.severity),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        _alarmTypeIcon(alarm.type),
+                        color: Colors.white54,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              alarm.municipality ??
+                                  '${alarm.location.latitude.toStringAsFixed(1)}°, ${alarm.location.longitude.toStringAsFixed(1)}°',
+                              style: GoogleFonts.spaceGrotesk(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              alarm.message,
+                              style: GoogleFonts.inter(
+                                color: Colors.white38,
+                                fontSize: 9,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _formatTimeAgo(alarm.createdAt),
+                        style: GoogleFonts.spaceGrotesk(
+                          color: _severityColor(alarm.severity),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AlarmMarkersOverlay extends StatelessWidget {
+  const _AlarmMarkersOverlay({required this.alarms});
+  final List<Alarm> alarms;
+
+  Color _severityColor(AlarmSeverity severity) {
+    switch (severity) {
+      case AlarmSeverity.critical:
+        return const Color(0xFFFF4757);
+      case AlarmSeverity.high:
+        return const Color(0xFFFF9F43);
+      case AlarmSeverity.medium:
+        return const Color(0xFFFECA57);
+      case AlarmSeverity.low:
+        return const Color(0xFF54A0FF);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Padding(
+        padding: const EdgeInsets.all(60),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Stack(
+              children: alarms.map((alarm) {
+                final lat = alarm.location.latitude;
+                final lon = alarm.location.longitude;
+
+                final x = ((lon + 180) / 360) * constraints.maxWidth;
+                final y = ((90 - lat) / 180) * constraints.maxHeight;
+
+                final color = _severityColor(alarm.severity);
+
+                return Positioned(
+                  left: x - 8,
+                  top: y - 8,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.5),
+                          blurRadius: 8,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Alarms Panel ───────────────────────────────────────────────────────────
+
+class _AlarmsPanel extends ConsumerWidget {
+  const _AlarmsPanel({
+    required this.onClose,
+    required this.onSelectAlarm,
+  });
+  final VoidCallback onClose;
+  final void Function(Alarm) onSelectAlarm;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activeAlarms = ref.watch(activeAlarmsProvider);
+
+    return GestureDetector(
+      onTap: onClose,
+      child: Container(
+        color: Colors.black54,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: GestureDetector(
+            onTap: () {},
+            child: Container(
+              width: 320,
+              color: const Color(0xFF0D1B2A),
+              child: Column(
+                children: [
+                  Container(
+                    height: 56,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF060E1A),
+                      border: Border(bottom: BorderSide(color: Colors.white10)),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          'ACTIVE ALARMS',
+                          style: GoogleFonts.spaceGrotesk(
+                            color: const Color(0xFF00D4FF),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (activeAlarms.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF4757)
+                                  .withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                  color: const Color(0xFFFF4757)
+                                      .withValues(alpha: 0.3)),
+                            ),
+                            child: Text(
+                              '${activeAlarms.length}',
+                              style: GoogleFonts.spaceGrotesk(
+                                color: const Color(0xFFFF4757),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(PhosphorIconsRegular.x,
+                              color: Colors.white54, size: 18),
+                          onPressed: onClose,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: activeAlarms.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  PhosphorIconsRegular.checkCircle,
+                                  size: 48,
+                                  color: const Color(0xFF00D4FF)
+                                      .withValues(alpha: 0.3),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'No active alarms',
+                                  style: GoogleFonts.spaceGrotesk(
+                                    color: Colors.white54,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(12),
+                            itemCount: activeAlarms.length,
+                            itemBuilder: (context, index) {
+                              final alarm = activeAlarms[index];
+                              return _AlarmPanelItem(
+                                alarm: alarm,
+                                onTap: () => onSelectAlarm(alarm),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AlarmPanelItem extends StatelessWidget {
+  const _AlarmPanelItem({required this.alarm, required this.onTap});
+  final Alarm alarm;
+  final VoidCallback onTap;
+
+  Color get _severityColor {
+    switch (alarm.severity) {
+      case AlarmSeverity.critical:
+        return const Color(0xFFFF4757);
+      case AlarmSeverity.high:
+        return const Color(0xFFFF9F43);
+      case AlarmSeverity.medium:
+        return const Color(0xFFFECA57);
+      case AlarmSeverity.low:
+        return const Color(0xFF54A0FF);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F2133),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _severityColor.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 4,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _severityColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        alarm.municipality ??
+                            '${alarm.location.latitude.toStringAsFixed(2)}°, ${alarm.location.longitude.toStringAsFixed(2)}°',
+                        style: GoogleFonts.spaceGrotesk(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _severityColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          alarm.severity.name.toUpperCase(),
+                          style: GoogleFonts.spaceGrotesk(
+                            color: _severityColor,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    alarm.message,
+                    style: GoogleFonts.inter(
+                      color: Colors.white54,
+                      fontSize: 11,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Stats Bar ────────────────────────────────────────────────────────────────
+
+class _StatsBar extends ConsumerWidget {
+  const _StatsBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final alarms = ref.watch(activeAlarmsProvider);
+
+    final criticalCount =
+        alarms.where((a) => a.severity == AlarmSeverity.critical).length;
+    final highCount =
+        alarms.where((a) => a.severity == AlarmSeverity.high).length;
+    final mediumCount =
+        alarms.where((a) => a.severity == AlarmSeverity.medium).length;
+    final lowCount =
+        alarms.where((a) => a.severity == AlarmSeverity.low).length;
+
+    final now = DateTime.now();
+    final lastScanTime = DateTime.now().subtract(const Duration(minutes: 2));
+    final diffMinutes = now.difference(lastScanTime).inMinutes;
+    final lastScanLabel = diffMinutes < 5 ? 'Just now' : '${diffMinutes}m ago';
+
+    return Container(
+      height: 56,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: const BoxDecoration(
+        color: Color(0xFF060E1A),
+        border: Border(bottom: BorderSide(color: Colors.white10)),
+      ),
+      child: Row(
+        children: [
+          _StatCard(
+            icon: PhosphorIconsRegular.warning,
+            label: 'Active Alerts',
+            value: alarms.isEmpty
+                ? 'None'
+                : '${criticalCount > 0 ? '$criticalCount Critical' : ''}${criticalCount > 0 && (highCount > 0 || mediumCount > 0 || lowCount > 0) ? ' · ' : ''}${highCount > 0 ? '$highCount Warnings' : ''}${highCount > 0 && (mediumCount > 0 || lowCount > 0) ? ' · ' : ''}${mediumCount > 0 ? '$mediumCount Moderate' : ''}${mediumCount > 0 && lowCount > 0 ? ' · ' : ''}${lowCount > 0 ? '$lowCount Low' : ''}',
+            color: criticalCount > 0
+                ? const Color(0xFFFF4757)
+                : highCount > 0
+                    ? const Color(0xFFFF9F43)
+                    : const Color(0xFF00D4FF),
+            iconColor: criticalCount > 0
+                ? const Color(0xFFFF4757)
+                : highCount > 0
+                    ? const Color(0xFFFF9F43)
+                    : const Color(0xFF00D4FF),
+          ),
+          const SizedBox(width: 24),
+          _StatCard(
+            icon: PhosphorIconsRegular.mapPin,
+            label: 'Monitored Regions',
+            value: '5',
+            color: const Color(0xFF00D4FF),
+            iconColor: const Color(0xFF00D4FF),
+          ),
+          const SizedBox(width: 24),
+          _StatCard(
+            icon: PhosphorIconsRegular.airplaneTilt,
+            label: 'Last Copernicus Scan',
+            value: lastScanLabel,
+            color: const Color(0xFF00D4FF),
+            iconColor: const Color(0xFF00D4FF),
+          ),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF00D4FF).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                  color: const Color(0xFF00D4FF).withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(PhosphorIconsRegular.gitBranch,
+                    color: Color(0xFF00D4FF), size: 12),
+                const SizedBox(width: 6),
+                Text(
+                  'SENTINEL-2 L2A',
+                  style: GoogleFonts.spaceGrotesk(
+                    color: const Color(0xFF00D4FF),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.iconColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+  final Color iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(icon, color: iconColor, size: 16),
+        ),
+        const SizedBox(width: 10),
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                color: Colors.white38,
+                fontSize: 10,
+              ),
+            ),
+            Text(
+              value,
+              style: GoogleFonts.spaceGrotesk(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}

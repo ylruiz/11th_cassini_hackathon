@@ -5,11 +5,16 @@ from app.services.mock_satellite_data import mock_satellite_service
 router = APIRouter()
 
 _WATER_BODY_IDS = {
-    "lake-balaton",
-    "danube-delta",
+    "inn-river",
     "lake-ohrid",
-    "ebro-reservoir",
+    "maritsa-river",
+    "glomma-river",
+    "tisza-river",
+    "vistula-river",
+    "po-river",
     "maas-river",
+    "danube-delta",
+    "guadalquivir-river",
 }
 
 

@@ -45,6 +45,10 @@ dependencies:
   flutter_dotenv: ^5.2.1
   cupertino_icons: ^1.0.8
 
+  # Notifications & Audio
+  flutter_local_notifications: ^18.0.1
+  flutter_sound: ^9.16.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -58,4 +62,5 @@ flutter:
   assets:
     - assets/
     - assets/earth_texture.png
+    - assets/audio/
     - .env

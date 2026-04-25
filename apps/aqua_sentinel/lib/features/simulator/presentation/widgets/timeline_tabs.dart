@@ -11,6 +11,7 @@ class TimelineTabs extends StatelessWidget {
     const primary = Color(0xFF00D4FF);
     return Container(
       color: const Color(0xFF060E1A),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: TabBar(
         controller: controller,
         indicatorColor: primary,

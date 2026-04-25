@@ -8,6 +8,8 @@ class AlertModel {
     required this.source,
     required this.timestamp,
     required this.description,
+    required this.latitude,
+    required this.longitude,
   });
 
   final String region;
@@ -16,4 +18,6 @@ class AlertModel {
   final String source;
   final String timestamp;
   final String description;
+  final double latitude;
+  final double longitude;
 }
