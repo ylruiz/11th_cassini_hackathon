@@ -3,6 +3,9 @@
 .AppleDouble
 .LSOverride
 
+# --- data
+./python_analysis/data/
+
 # ── IDEs ─────────────────────────────────────────────────────────────────────
 .idea/
 .vscode/
