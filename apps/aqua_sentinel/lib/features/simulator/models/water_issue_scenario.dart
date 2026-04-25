@@ -1,4 +1,4 @@
-enum WaterIssueType { pollution, flooding, drought, heatStress }
+enum WaterIssueType { pollution, flooding, drought, heatStress, snowMelt }
 
 class ScenarioIndicator {
   const ScenarioIndicator({

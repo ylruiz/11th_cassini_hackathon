@@ -4,25 +4,11 @@ import 'package:aqua_sentinel/features/simulator/presentation/widgets/now_tab.da
 import 'package:aqua_sentinel/features/simulator/presentation/widgets/simulation_viewport.dart';
 import 'package:aqua_sentinel/features/simulator/presentation/widgets/timeline_tabs.dart';
 import 'package:aqua_sentinel/features/simulator/presentation/widgets/what_if_tab.dart';
-import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import '../data/simulator_provider.dart';
-import '../models/water_issue_scenario.dart';
-
-@RoutePage()
-class SimulatorScreen extends StatelessWidget {
-  const SimulatorScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Color(0xFF060E1A),
-      body: SimulatorView(),
-    );
-  }
-}
+import '../../data/simulator_provider.dart';
+import '../../models/water_issue_scenario.dart';
 
 class SimulatorView extends ConsumerStatefulWidget {
   const SimulatorView({super.key});
@@ -58,6 +44,7 @@ class _SimulatorViewState extends ConsumerState<SimulatorView>
         WaterIssueType.flooding => const Color(0xFF00D4FF),
         WaterIssueType.drought => const Color(0xFFFFB300),
         WaterIssueType.heatStress => Colors.deepOrangeAccent,
+        WaterIssueType.snowMelt => const Color(0xFF00BFFF),
       };
 
   @override
@@ -76,11 +63,7 @@ class _SimulatorViewState extends ConsumerState<SimulatorView>
             children: [
               CausesTab(scenario: scenario),
               NowTab(scenario: scenario),
-              WhatIfTab(
-                scenario: scenario,
-                issue: _issue,
-                accentColor: _accentColor,
-              ),
+              WhatIfTab(scenario: scenario),
             ],
           ),
         ),

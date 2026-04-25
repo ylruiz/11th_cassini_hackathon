@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 class BodyCard extends StatelessWidget {
   const BodyCard({super.key, required this.text});
-
   final String text;
 
   @override

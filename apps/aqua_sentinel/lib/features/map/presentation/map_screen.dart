@@ -1,6 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -8,6 +9,11 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../monitoring/data/monitoring_provider.dart';
 import '../../monitoring/models/environmental_analysis.dart';
 import '../../monitoring/presentation/analysis_panel.dart';
+import '../../simulator/models/water_issue_scenario.dart';
+
+/// Set this to a lat/lon to make the map fly to that location.
+/// MapView listens to it and clears it after moving.
+final mapNavigationProvider = StateProvider<LatLng?>((ref) => null);
 
 @RoutePage()
 class MapScreen extends StatelessWidget {
@@ -36,26 +42,63 @@ class _MapViewState extends ConsumerState<MapView> {
   Widget build(BuildContext context) {
     final selectedBody = ref.watch(selectedWaterBodyProvider);
 
+    ref.listen<LatLng?>(mapNavigationProvider, (_, target) {
+      if (target != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _mapController.move(target, 8);
+            ref.read(mapNavigationProvider.notifier).state = null;
+          }
+        });
+      }
+    });
+
     return Row(
       children: [
         Expanded(
           flex: 6,
-          child: FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: const LatLng(46.0, 15.0),
-              initialZoom: 4.5,
-              onTap: (_, point) => _handleMapTap(point),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFF060E1A),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFF00D4FF).withValues(alpha: 0.15),
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Column(
+                  children: [
+                    if (selectedBody != null)
+                      _buildScenarioSelector(selectedBody),
+                    Expanded(
+                      child: FlutterMap(
+                        mapController: _mapController,
+                        options: MapOptions(
+                          initialCenter: const LatLng(46.0, 15.0),
+                          initialZoom: 4.5,
+                          onTap: (_, point) => _handleMapTap(point),
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate:
+                                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'eu.cassini.aqua_sentinel',
+                          ),
+                          MarkerLayer(
+                            markers:
+                                waterBodies.map(_buildWaterBodyMarker).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _buildFooter(),
+                  ],
+                ),
+              ),
             ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'eu.cassini.aqua_sentinel',
-              ),
-              MarkerLayer(
-                markers: waterBodies.map(_buildMarker).toList(),
-              ),
-            ],
           ),
         ),
         if (selectedBody != null)
@@ -67,7 +110,170 @@ class _MapViewState extends ConsumerState<MapView> {
     );
   }
 
-  Marker _buildMarker(WaterBodyInfo body) {
+  static const _scenarios = [
+    (WaterIssueType.pollution, 'Pollution', Color(0xFFFF9F43)),
+    (WaterIssueType.flooding, 'Flooding', Color(0xFF00D4FF)),
+    (WaterIssueType.drought, 'Drought', Color(0xFFFFC048)),
+    (WaterIssueType.heatStress, 'Heat Stress', Color(0xFFFF6B35)),
+    (WaterIssueType.snowMelt, 'Snow Melt', Color(0xFF74B9FF)),
+  ];
+
+  Widget _buildScenarioSelector(WaterBodyInfo body) {
+    final selectedIssue = ref.watch(selectedIssueTypeProvider);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1B2A),
+        border: Border(
+          bottom: BorderSide(
+            color: const Color(0xFF00D4FF).withValues(alpha: 0.15),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(PhosphorIconsRegular.drop,
+              color: Color(0xFF00D4FF), size: 14),
+          const SizedBox(width: 6),
+          Text(
+            body.name,
+            style: GoogleFonts.spaceGrotesk(
+              color: const Color(0xFF00D4FF),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(width: 1, height: 16, color: Colors.white12),
+          const SizedBox(width: 12),
+          Text(
+            'SCENARIO:',
+            style: GoogleFonts.spaceGrotesk(
+              color: Colors.white38,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _scenarios.map((s) {
+                  final (type, label, color) = s;
+                  final isSelected = type == selectedIssue;
+                  return GestureDetector(
+                    onTap: () {
+                      ref.read(selectedIssueTypeProvider.notifier).state = type;
+                      ref.read(viewModeProvider.notifier).state =
+                          ViewMode.simulate;
+                    },
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? color.withValues(alpha: 0.15)
+                              : const Color(0xFF1A2A3A),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isSelected
+                                ? color
+                                : color.withValues(alpha: 0.25),
+                          ),
+                        ),
+                        child: Text(
+                          label,
+                          style: GoogleFonts.spaceGrotesk(
+                            color: isSelected
+                                ? color
+                                : color.withValues(alpha: 0.55),
+                            fontSize: 11,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1B2A),
+        border: Border(
+          top: BorderSide(
+            color: const Color(0xFF00D4FF).withValues(alpha: 0.15),
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            PhosphorIconsRegular.mapTrifold,
+            color: const Color(0xFF00D4FF).withValues(alpha: 0.5),
+            size: 13,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'OpenStreetMap',
+            style: TextStyle(
+              color: const Color(0xFF00D4FF).withValues(alpha: 0.5),
+              fontSize: 10,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Icon(
+            PhosphorIconsRegular.mapPin,
+            color: const Color(0xFF00D4FF).withValues(alpha: 0.7),
+            size: 13,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'Galileo / EGNOS',
+            style: TextStyle(
+              color: const Color(0xFF00D4FF).withValues(alpha: 0.7),
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Icon(
+            PhosphorIconsRegular.broadcast,
+            color: const Color(0xFF00D4FF).withValues(alpha: 0.7),
+            size: 13,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'Copernicus Sentinel-2',
+            style: TextStyle(
+              color: const Color(0xFF00D4FF).withValues(alpha: 0.7),
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Marker _buildWaterBodyMarker(WaterBodyInfo body) {
     final isSelected = ref.read(selectedWaterBodyProvider)?.id == body.id;
 
     return Marker(

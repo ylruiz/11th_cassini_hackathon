@@ -1,6 +1,5 @@
 import 'package:aqua_sentinel/features/simulator/presentation/widgets/body_card.dart';
 import 'package:aqua_sentinel/features/simulator/presentation/widgets/impact_tile.dart';
-import 'package:aqua_sentinel/features/simulator/presentation/widgets/projection_chart.dart';
 import 'package:aqua_sentinel/features/simulator/presentation/widgets/question_card.dart';
 import 'package:aqua_sentinel/features/simulator/presentation/widgets/source_badge.dart';
 import 'package:flutter/material.dart';
@@ -13,13 +12,9 @@ class WhatIfTab extends StatelessWidget {
   const WhatIfTab({
     super.key,
     required this.scenario,
-    required this.issue,
-    required this.accentColor,
   });
 
   final WaterIssueScenario scenario;
-  final WaterIssueType issue;
-  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -35,10 +30,6 @@ class WhatIfTab extends StatelessWidget {
           ).animate().fadeIn(duration: 300.ms),
           const SizedBox(height: 12),
           BodyCard(text: scenario.whatIfText).animate().fadeIn(delay: 100.ms),
-          const SizedBox(height: 16),
-          ProjectionChart(issue: issue, accentColor: accentColor)
-              .animate()
-              .fadeIn(delay: 150.ms),
           const SizedBox(height: 16),
           Text(
             'PROJECTED OUTCOMES',

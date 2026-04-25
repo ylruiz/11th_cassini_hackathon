@@ -315,61 +315,211 @@ const waterBodies = [
   WaterBodyInfo(
     id: 'inn-river',
     name: 'Inn River',
-    latitude: 47.26,
-    longitude: 11.41,
+    latitude: 48.57,
+    longitude: 13.48,
   ),
   WaterBodyInfo(
     id: 'lake-ohrid',
     name: 'Lake Ohrid',
-    latitude: 41.02,
+    latitude: 41.04,
     longitude: 20.72,
   ),
   WaterBodyInfo(
     id: 'maritsa-river',
     name: 'Maritsa River',
-    latitude: 42.07,
-    longitude: 25.32,
+    latitude: 41.52,
+    longitude: 26.04,
   ),
   WaterBodyInfo(
     id: 'glomma-river',
     name: 'Glomma River',
-    latitude: 59.91,
-    longitude: 10.27,
+    latitude: 59.18,
+    longitude: 10.87,
   ),
   WaterBodyInfo(
     id: 'tisza-river',
     name: 'Tisza River',
-    latitude: 47.59,
-    longitude: 21.12,
+    latitude: 45.14,
+    longitude: 20.16,
   ),
   WaterBodyInfo(
     id: 'vistula-river',
     name: 'Vistula River',
-    latitude: 52.64,
-    longitude: 18.96,
+    latitude: 52.38,
+    longitude: 20.09,
   ),
   WaterBodyInfo(
     id: 'po-river',
     name: 'Po River',
-    latitude: 45.44,
-    longitude: 9.14,
+    latitude: 45.04,
+    longitude: 10.05,
   ),
   WaterBodyInfo(
     id: 'maas-river',
     name: 'Maas River',
-    latitude: 51.92,
-    longitude: 4.47,
+    latitude: 50.87,
+    longitude: 5.70,
   ),
   WaterBodyInfo(
     id: 'danube-delta',
     name: 'Danube Delta',
-    latitude: 45.15,
-    longitude: 29.65,
+    latitude: 44.90,
+    longitude: 29.23,
   ),
   WaterBodyInfo(
     id: 'guadalquivir-river',
     name: 'Guadalquivir River',
-    latitude: 37.39,
-    longitude: -5.99,
+    latitude: 37.94,
+    longitude: -4.48,
+  ),
+];
+
+enum MeltRate {
+  slow,
+  medium,
+  fast,
+}
+
+extension MeltRateExtension on MeltRate {
+  String get displayName {
+    switch (this) {
+      case MeltRate.slow:
+        return 'Slow';
+      case MeltRate.medium:
+        return 'Medium';
+      case MeltRate.fast:
+        return 'Fast';
+    }
+  }
+}
+
+MeltRate meltRateFromString(String value) {
+  switch (value) {
+    case 'slow':
+      return MeltRate.slow;
+    case 'medium':
+      return MeltRate.medium;
+    case 'fast':
+      return MeltRate.fast;
+    default:
+      return MeltRate.medium;
+  }
+}
+
+class SnowArea {
+  final String id;
+  final String name;
+  final double latitude;
+  final double longitude;
+  final double coveragePct;
+  final MeltRate meltRate;
+  final String feedsRiver;
+  final String lastUpdated;
+
+  const SnowArea({
+    required this.id,
+    required this.name,
+    required this.latitude,
+    required this.longitude,
+    required this.coveragePct,
+    required this.meltRate,
+    required this.feedsRiver,
+    required this.lastUpdated,
+  });
+
+  factory SnowArea.fromJson(Map<String, dynamic> json) {
+    return SnowArea(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      latitude: (json['latitude'] as num).toDouble(),
+      longitude: (json['longitude'] as num).toDouble(),
+      coveragePct: (json['coverage_pct'] as num).toDouble(),
+      meltRate: meltRateFromString(json['melt_rate'] as String),
+      feedsRiver: json['feeds_river'] as String,
+      lastUpdated: json['last_updated'] as String,
+    );
+  }
+}
+
+const snowAreas = [
+  SnowArea(
+    id: 'snow-alps-north',
+    name: 'Alps North',
+    latitude: 46.5,
+    longitude: 10.0,
+    coveragePct: 78,
+    meltRate: MeltRate.medium,
+    feedsRiver: 'inn-river',
+    lastUpdated: '2025-04-25',
+  ),
+  SnowArea(
+    id: 'snow-alps-south',
+    name: 'Alps South',
+    latitude: 45.8,
+    longitude: 10.5,
+    coveragePct: 65,
+    meltRate: MeltRate.fast,
+    feedsRiver: 'po-river',
+    lastUpdated: '2025-04-25',
+  ),
+  SnowArea(
+    id: 'snow-pyrenees-east',
+    name: 'Pyrenees East',
+    latitude: 42.5,
+    longitude: 2.0,
+    coveragePct: 45,
+    meltRate: MeltRate.fast,
+    feedsRiver: 'guadalquivir-river',
+    lastUpdated: '2025-04-25',
+  ),
+  SnowArea(
+    id: 'snow-carpathians',
+    name: 'Carpathians',
+    latitude: 47.5,
+    longitude: 25.0,
+    coveragePct: 82,
+    meltRate: MeltRate.slow,
+    feedsRiver: 'tisza-river',
+    lastUpdated: '2025-04-25',
+  ),
+  SnowArea(
+    id: 'snow-balkans',
+    name: 'Balkans',
+    latitude: 42.0,
+    longitude: 21.0,
+    coveragePct: 35,
+    meltRate: MeltRate.medium,
+    feedsRiver: 'maritsa-river',
+    lastUpdated: '2025-04-25',
+  ),
+  SnowArea(
+    id: 'snow-scandinavia',
+    name: 'Scandinavia',
+    latitude: 62.0,
+    longitude: 12.0,
+    coveragePct: 90,
+    meltRate: MeltRate.slow,
+    feedsRiver: 'glomma-river',
+    lastUpdated: '2025-04-25',
+  ),
+  SnowArea(
+    id: 'snow-peaks-iberian',
+    name: 'Iberian Peaks',
+    latitude: 40.5,
+    longitude: -5.0,
+    coveragePct: 25,
+    meltRate: MeltRate.fast,
+    feedsRiver: 'guadalquivir-river',
+    lastUpdated: '2025-04-25',
+  ),
+  SnowArea(
+    id: 'snow-massif-central',
+    name: 'Massif Central',
+    latitude: 45.5,
+    longitude: 3.5,
+    coveragePct: 30,
+    meltRate: MeltRate.medium,
+    feedsRiver: 'maas-river',
+    lastUpdated: '2025-04-25',
   ),
 ];

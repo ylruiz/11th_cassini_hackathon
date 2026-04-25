@@ -348,8 +348,8 @@ class MockSatelliteDataService:
             },
             "guadalquivir-river": {
                 "name": "Guadalquivir River",
-                "latitude": 37.39,
-                "longitude": -5.99,
+                "latitude": 36.78,
+                "longitude": -6.43,
                 "problems": [
                     EnvironmentalProblem(
                         id="prob-009",
@@ -519,8 +519,8 @@ class MockSatelliteDataService:
             },
             "inn-river": {
                 "name": "Inn River",
-                "latitude": 47.26,
-                "longitude": 11.41,
+                "latitude": 48.57,
+                "longitude": 13.43,
                 "problems": [
                     EnvironmentalProblem(
                         id="prob-013",
@@ -600,8 +600,8 @@ class MockSatelliteDataService:
             },
             "maritsa-river": {
                 "name": "Maritsa River",
-                "latitude": 42.07,
-                "longitude": 25.32,
+                "latitude": 41.65,
+                "longitude": 26.20,
                 "problems": [
                     EnvironmentalProblem(
                         id="prob-015",
@@ -772,8 +772,8 @@ class MockSatelliteDataService:
             },
             "vistula-river": {
                 "name": "Vistula River",
-                "latitude": 52.64,
-                "longitude": 18.96,
+                "latitude": 52.42,
+                "longitude": 17.05,
                 "problems": [
                     EnvironmentalProblem(
                         id="prob-019",
@@ -863,8 +863,8 @@ class MockSatelliteDataService:
             },
             "po-river": {
                 "name": "Po River",
-                "latitude": 45.44,
-                "longitude": 9.14,
+                "latitude": 45.18,
+                "longitude": 9.40,
                 "problems": [
                     EnvironmentalProblem(
                         id="prob-021",

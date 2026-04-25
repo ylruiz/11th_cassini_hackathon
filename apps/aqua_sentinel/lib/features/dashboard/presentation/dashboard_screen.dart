@@ -1,11 +1,12 @@
+import 'package:aqua_sentinel/features/simulator/presentation/widgets/simulator_view.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../alerts/data/alarms_provider.dart';
 import '../../alerts/models/alarm_model.dart';
 import '../../map/presentation/map_screen.dart';
-import '../../simulator/presentation/simulator_screen.dart';
 import '../../water_quality/presentation/water_quality_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_globe_3d/flutter_globe_3d.dart';
@@ -80,6 +81,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             _AlarmsPanel(
               onClose: () => setState(() => _alarmsPanelOpen = false),
               onSelectAlarm: (alarm) {
+                ref.read(mapNavigationProvider.notifier).state = LatLng(
+                  alarm.location.latitude,
+                  alarm.location.longitude,
+                );
                 setState(() {
                   _alarmsPanelOpen = false;
                   _selectedNav = 1;
@@ -105,7 +110,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   setState(() => _alarmsPanelOpen = !_alarmsPanelOpen),
             ),
             const _StatsBar(),
-            Expanded(child: _GlobeHero(controller: _earthController)),
+            Expanded(
+              child: _GlobeHero(
+                controller: _earthController,
+                onNavigateToMap: () => setState(() => _selectedNav = 1),
+              ),
+            ),
           ],
         ),
         Column(
@@ -116,8 +126,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               onBellPressed: () =>
                   setState(() => _alarmsPanelOpen = !_alarmsPanelOpen),
             ),
-            const _StatsBar(),
-            Expanded(child: const MapView()),
+            const Expanded(child: MapView()),
           ],
         ),
         Column(
@@ -128,8 +137,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               onBellPressed: () =>
                   setState(() => _alarmsPanelOpen = !_alarmsPanelOpen),
             ),
-            const _StatsBar(),
-            Expanded(child: const SimulatorView()),
+            const Expanded(child: SimulatorView()),
           ],
         ),
         Column(
@@ -140,8 +148,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               onBellPressed: () =>
                   setState(() => _alarmsPanelOpen = !_alarmsPanelOpen),
             ),
-            const _StatsBar(),
-            Expanded(child: const WaterQualityView()),
+            const Expanded(child: WaterQualityView()),
           ],
         ),
       ],
@@ -182,7 +189,6 @@ class _Sidebar extends StatelessWidget {
   static const _items = [
     (PhosphorIconsRegular.squaresFour, 'Dashboard'),
     (PhosphorIconsRegular.mapTrifold, 'Monitoring'),
-    (PhosphorIconsRegular.slidersHorizontal, 'Simulation'),
     (PhosphorIconsRegular.drop, 'Water Quality'),
   ];
 
@@ -336,7 +342,7 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 72,
+      height: 73,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: const BoxDecoration(
         color: Color(0xFF060E1A),
@@ -451,8 +457,12 @@ class _IconBadge extends StatelessWidget {
 // ─── Globe hero ──────────────────────────────────────────────────────────────
 
 class _GlobeHero extends ConsumerStatefulWidget {
-  const _GlobeHero({required this.controller});
+  const _GlobeHero({
+    required this.controller,
+    required this.onNavigateToMap,
+  });
   final EarthController controller;
+  final VoidCallback onNavigateToMap;
 
   @override
   ConsumerState<_GlobeHero> createState() => _GlobeHeroState();
@@ -556,10 +566,13 @@ class _GlobeHeroState extends ConsumerState<_GlobeHero> {
                 ],
               ),
             ),
-            const _RecentAlertsPanel(),
+            _RecentAlertsPanel(onNavigateToMap: widget.onNavigateToMap),
             if (activeAlarms.isNotEmpty)
               Positioned.fill(
-                child: _AlarmMarkersOverlay(alarms: activeAlarms),
+                child: _AlarmMarkersOverlay(
+                  alarms: activeAlarms,
+                  onNavigateToMap: widget.onNavigateToMap,
+                ),
               ),
           ],
         ),
@@ -755,7 +768,8 @@ class _CoordChip extends StatelessWidget {
 }
 
 class _RecentAlertsPanel extends ConsumerWidget {
-  const _RecentAlertsPanel();
+  const _RecentAlertsPanel({required this.onNavigateToMap});
+  final VoidCallback onNavigateToMap;
 
   Color _severityColor(AlarmSeverity severity) {
     switch (severity) {
@@ -773,7 +787,7 @@ class _RecentAlertsPanel extends ConsumerWidget {
   IconData _alarmTypeIcon(AlarmType type) {
     switch (type) {
       case AlarmType.flood:
-        return PhosphorIconsRegular.drop;
+        return PhosphorIconsRegular.waves;
       case AlarmType.waterQuality:
         return PhosphorIconsRegular.drop;
       case AlarmType.anomaly:
@@ -788,13 +802,9 @@ class _RecentAlertsPanel extends ConsumerWidget {
       final created = DateTime.parse(createdAt);
       final now = DateTime.now();
       final diff = now.difference(created);
-      if (diff.inHours > 24) {
-        return '${diff.inDays}d ago';
-      } else if (diff.inHours > 0) {
-        return '${diff.inHours}h ago';
-      } else {
-        return '${diff.inMinutes}m ago';
-      }
+      if (diff.inHours > 24) return '${diff.inDays}d ago';
+      if (diff.inHours > 0) return '${diff.inHours}h ago';
+      return '${diff.inMinutes}m ago';
     } catch (_) {
       return '';
     }
@@ -805,15 +815,13 @@ class _RecentAlertsPanel extends ConsumerWidget {
     final alarms = ref.watch(activeAlarmsProvider);
     final recentAlarms = alarms.take(3).toList();
 
-    if (recentAlarms.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    if (recentAlarms.isEmpty) return const SizedBox.shrink();
 
     return Positioned(
       left: 20,
       bottom: 20,
       child: Container(
-        width: 280,
+        width: 290,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: const Color(0xFF0D1B2A).withValues(alpha: 0.95),
@@ -878,64 +886,84 @@ class _RecentAlertsPanel extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 10),
-            ...recentAlarms.map((alarm) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: _severityColor(alarm.severity),
-                          shape: BoxShape.circle,
+            ...recentAlarms.map((alarm) {
+              final color = _severityColor(alarm.severity);
+              return MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () {
+                    ref.read(mapNavigationProvider.notifier).state = LatLng(
+                      alarm.location.latitude,
+                      alarm.location.longitude,
+                    );
+                    onNavigateToMap();
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: color.withValues(alpha: 0.15)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        _alarmTypeIcon(alarm.type),
-                        color: Colors.white54,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              alarm.municipality ??
-                                  '${alarm.location.latitude.toStringAsFixed(1)}°, ${alarm.location.longitude.toStringAsFixed(1)}°',
-                              style: GoogleFonts.spaceGrotesk(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
+                        const SizedBox(width: 8),
+                        Icon(_alarmTypeIcon(alarm.type),
+                            color: Colors.white54, size: 13),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                alarm.municipality ??
+                                    '${alarm.location.latitude.toStringAsFixed(1)}°, ${alarm.location.longitude.toStringAsFixed(1)}°',
+                                style: GoogleFonts.spaceGrotesk(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              alarm.message,
-                              style: GoogleFonts.inter(
-                                color: Colors.white38,
-                                fontSize: 9,
+                              Text(
+                                alarm.message,
+                                style: GoogleFonts.inter(
+                                    color: Colors.white38, fontSize: 9),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _formatTimeAgo(alarm.createdAt),
-                        style: GoogleFonts.spaceGrotesk(
-                          color: _severityColor(alarm.severity),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w500,
+                        const SizedBox(width: 6),
+                        Text(
+                          _formatTimeAgo(alarm.createdAt),
+                          style: GoogleFonts.spaceGrotesk(
+                            color: color,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Icon(PhosphorIconsRegular.arrowRight,
+                            color: Colors.white24, size: 10),
+                      ],
+                    ),
                   ),
-                )),
+                ),
+              );
+            }),
           ],
         ),
       ),
@@ -943,9 +971,13 @@ class _RecentAlertsPanel extends ConsumerWidget {
   }
 }
 
-class _AlarmMarkersOverlay extends StatelessWidget {
-  const _AlarmMarkersOverlay({required this.alarms});
+class _AlarmMarkersOverlay extends ConsumerWidget {
+  const _AlarmMarkersOverlay({
+    required this.alarms,
+    required this.onNavigateToMap,
+  });
   final List<Alarm> alarms;
+  final VoidCallback onNavigateToMap;
 
   Color _severityColor(AlarmSeverity severity) {
     switch (severity) {
@@ -961,46 +993,100 @@ class _AlarmMarkersOverlay extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Padding(
-        padding: const EdgeInsets.all(60),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Stack(
-              children: alarms.map((alarm) {
-                final lat = alarm.location.latitude;
-                final lon = alarm.location.longitude;
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.all(60),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Stack(
+            children: alarms.map((alarm) {
+              final lat = alarm.location.latitude;
+              final lon = alarm.location.longitude;
 
-                final x = ((lon + 180) / 360) * constraints.maxWidth;
-                final y = ((90 - lat) / 180) * constraints.maxHeight;
+              final x = ((lon + 180) / 360) * constraints.maxWidth;
+              final y = ((90 - lat) / 180) * constraints.maxHeight;
 
-                final color = _severityColor(alarm.severity);
+              final color = _severityColor(alarm.severity);
+              final isCritical = alarm.severity == AlarmSeverity.critical;
+              final isHigh = alarm.severity == AlarmSeverity.high;
+              final pulseMs = isCritical ? 800 : 1200;
 
-                return Positioned(
-                  left: x - 8,
-                  top: y - 8,
-                  child: Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: color.withValues(alpha: 0.5),
-                          blurRadius: 8,
-                          spreadRadius: 2,
+              final label =
+                  '${alarm.severity.name.toUpperCase()} — ${alarm.municipality ?? 'Lat ${lat.toStringAsFixed(1)}, Lon ${lon.toStringAsFixed(1)}'}';
+
+              return Positioned(
+                left: x - 14,
+                top: y - 14,
+                child: Tooltip(
+                  message: label,
+                  textStyle: GoogleFonts.spaceGrotesk(
+                      color: Colors.white, fontSize: 11),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0D1B2A),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: color.withValues(alpha: 0.4)),
+                  ),
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () {
+                        ref.read(mapNavigationProvider.notifier).state =
+                            LatLng(lat, lon);
+                        onNavigateToMap();
+                      },
+                      child: SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            if (isCritical || isHigh)
+                              Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: color.withValues(alpha: 0.7),
+                                    width: 2,
+                                  ),
+                                ),
+                              )
+                                  .animate(onPlay: (c) => c.repeat())
+                                  .scale(
+                                    begin: const Offset(0.4, 0.4),
+                                    end: const Offset(1.3, 1.3),
+                                    duration: pulseMs.ms,
+                                    curve: Curves.easeOut,
+                                  )
+                                  .fadeOut(duration: pulseMs.ms),
+                            Container(
+                              width: 16,
+                              height: 16,
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                                border:
+                                    Border.all(color: Colors.white, width: 2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: color.withValues(alpha: 0.6),
+                                    blurRadius: 10,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                );
-              }).toList(),
-            );
-          },
-        ),
+                ),
+              );
+            }).toList(),
+          );
+        },
       ),
     );
   }
@@ -1025,7 +1111,7 @@ class _AlarmsPanel extends ConsumerWidget {
       child: Container(
         color: Colors.black54,
         child: Align(
-          alignment: Alignment.centerLeft,
+          alignment: Alignment.centerRight,
           child: GestureDetector(
             onTap: () {},
             child: Container(
@@ -1272,12 +1358,12 @@ class _StatsBar extends ConsumerWidget {
                     : const Color(0xFF00D4FF),
           ),
           const SizedBox(width: 24),
-          _StatCard(
+          const _StatCard(
             icon: PhosphorIconsRegular.mapPin,
             label: 'Monitored Regions',
             value: '5',
-            color: const Color(0xFF00D4FF),
-            iconColor: const Color(0xFF00D4FF),
+            color: Color(0xFF00D4FF),
+            iconColor: Color(0xFF00D4FF),
           ),
           const SizedBox(width: 24),
           _StatCard(

@@ -119,4 +119,28 @@ ChartData chartDataFor(WaterIssueType issue) => switch (issue) {
           minY: 14,
           maxY: 32,
         ),
+      WaterIssueType.snowMelt => const ChartData(
+          metricLabel: 'River Flow',
+          unit: 'm³/s',
+          historical: [
+            FlSpot(-9, 180),
+            FlSpot(-6, 220),
+            FlSpot(-3, 280),
+            FlSpot(0, 340),
+          ],
+          noAction: [
+            FlSpot(0, 340),
+            FlSpot(3, 380),
+            FlSpot(6, 290),
+            FlSpot(10, 180),
+          ],
+          withAction: [
+            FlSpot(0, 340),
+            FlSpot(3, 320),
+            FlSpot(6, 280),
+            FlSpot(10, 240),
+          ],
+          minY: 100,
+          maxY: 450,
+        ),
     };

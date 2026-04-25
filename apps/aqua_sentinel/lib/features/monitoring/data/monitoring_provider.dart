@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../models/environmental_analysis.dart';
+import '../../simulator/data/simulator_provider.dart';
+import '../../simulator/models/water_issue_scenario.dart';
 
 final dioProvider = Provider<Dio>((ref) {
   final baseUrl = dotenv.get('API_BASE_URL', fallback: 'http://localhost:8000');
@@ -17,6 +19,13 @@ final dioProvider = Provider<Dio>((ref) {
 });
 
 final selectedWaterBodyProvider = StateProvider<WaterBodyInfo?>((ref) => null);
+
+enum ViewMode { monitor, simulate }
+
+final viewModeProvider = StateProvider<ViewMode>((ref) => ViewMode.monitor);
+
+final selectedIssueTypeProvider =
+    StateProvider<WaterIssueType>((ref) => WaterIssueType.pollution);
 
 final environmentalAnalysisProvider =
     FutureProvider.family<AreaAnalysis, String>((ref, waterBodyId) async {

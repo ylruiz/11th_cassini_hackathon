@@ -110,6 +110,8 @@ class _ScenePainter extends CustomPainter {
         _paintDrought(canvas, size);
       case WaterIssueType.heatStress:
         _paintHeatStress(canvas, size);
+      case WaterIssueType.snowMelt:
+        _paintSnowMelt(canvas, size);
     }
   }
 
@@ -122,15 +124,13 @@ class _ScenePainter extends CustomPainter {
     final bankH = size.height * 0.22;
     _fillGrad(canvas, Rect.fromLTWH(0, 0, size.width, bankH),
         const Color(0xFF0F2A12), const Color(0xFF0A1C0C));
-    _fillGrad(
-        canvas,
-        Rect.fromLTWH(0, size.height - bankH, size.width, bankH),
-        const Color(0xFF0A1C0C),
-        const Color(0xFF0F2A12));
+    _fillGrad(canvas, Rect.fromLTWH(0, size.height - bankH, size.width, bankH),
+        const Color(0xFF0A1C0C), const Color(0xFF0F2A12));
 
     final riverRect =
         Rect.fromLTWH(0, bankH, size.width, size.height - bankH * 2);
-    _fillGrad(canvas, riverRect, const Color(0xFF0D3A5C), const Color(0xFF061A2E));
+    _fillGrad(
+        canvas, riverRect, const Color(0xFF0D3A5C), const Color(0xFF061A2E));
 
     // Flow lines
     final flowPaint = Paint()
@@ -156,9 +156,13 @@ class _ScenePainter extends CustomPainter {
           Colors.orange.withValues(alpha: 0.30),
           Colors.transparent,
         ],
-      ).createShader(Rect.fromCircle(center: plumeCenter, radius: plumeW * 0.7));
+      ).createShader(
+          Rect.fromCircle(center: plumeCenter, radius: plumeW * 0.7));
     canvas.drawOval(
-      Rect.fromCenter(center: plumeCenter, width: plumeW * 1.1, height: riverRect.height * 0.75),
+      Rect.fromCenter(
+          center: plumeCenter,
+          width: plumeW * 1.1,
+          height: riverRect.height * 0.75),
       plumePaint,
     );
 
@@ -173,7 +177,8 @@ class _ScenePainter extends CustomPainter {
       final py = riverRect.top +
           riverRect.height * 0.15 +
           (0.35 + wave * 0.25) * riverRect.height * 0.7;
-      canvas.drawCircle(Offset(px, py), 1.5 + rand.nextDouble() * 2.5, particlePaint);
+      canvas.drawCircle(
+          Offset(px, py), 1.5 + rand.nextDouble() * 2.5, particlePaint);
     }
   }
 
@@ -194,17 +199,21 @@ class _ScenePainter extends CustomPainter {
           size.width * 0.55, size.height * 0.38)
       ..quadraticBezierTo(size.width * 0.70, size.height * 0.18,
           size.width * 0.80, size.height * 0.40)
-      ..quadraticBezierTo(size.width * 0.90, size.height * 0.55,
-          size.width, size.height * 0.48)
+      ..quadraticBezierTo(
+          size.width * 0.90, size.height * 0.55, size.width, size.height * 0.48)
       ..lineTo(size.width, size.height)
       ..close();
     canvas.drawPath(hill, hillPaint);
 
     // Rising water
     final waterLevel = size.height * (0.30 + progress * 0.45);
-    final waterRect = Rect.fromLTWH(0, size.height - waterLevel, size.width, waterLevel);
-    _fillGrad(canvas, waterRect,
-        const Color(0xFF0A3C6E).withValues(alpha: 0.92), const Color(0xFF051428));
+    final waterRect =
+        Rect.fromLTWH(0, size.height - waterLevel, size.width, waterLevel);
+    _fillGrad(
+        canvas,
+        waterRect,
+        const Color(0xFF0A3C6E).withValues(alpha: 0.92),
+        const Color(0xFF051428));
 
     // Waves on surface
     final wavePaint = Paint()
@@ -217,7 +226,8 @@ class _ScenePainter extends CustomPainter {
           x,
           size.height -
               waterLevel +
-              math.sin((x / size.width * math.pi * 4) + ambient * math.pi * 2) * 4);
+              math.sin((x / size.width * math.pi * 4) + ambient * math.pi * 2) *
+                  4);
     }
     canvas.drawPath(wave1, wavePaint);
 
@@ -232,7 +242,10 @@ class _ScenePainter extends CustomPainter {
           size.height -
               waterLevel +
               8 +
-              math.sin((x / size.width * math.pi * 5) + ambient * math.pi * 2 + 1.2) * 3);
+              math.sin((x / size.width * math.pi * 5) +
+                      ambient * math.pi * 2 +
+                      1.2) *
+                  3);
     }
     canvas.drawPath(wave2, wave2Paint);
 
@@ -242,7 +255,10 @@ class _ScenePainter extends CustomPainter {
     for (int i = 0; i < 10; i++) {
       final seed = i / 10.0;
       final px = ((seed + ambient * 0.12) % 1.0) * size.width;
-      final py = size.height - waterLevel + 10 + rand.nextDouble() * (waterLevel * 0.3);
+      final py = size.height -
+          waterLevel +
+          10 +
+          rand.nextDouble() * (waterLevel * 0.3);
       canvas.drawCircle(Offset(px, py), 2.0, debrisPaint);
     }
   }
@@ -254,8 +270,11 @@ class _ScenePainter extends CustomPainter {
         const Color(0xFF1A0E04), const Color(0xFF271408));
 
     // Cracked earth
-    final earthPaint = Paint()..color = const Color(0xFF3D2010).withValues(alpha: 0.8);
-    canvas.drawRect(Rect.fromLTWH(0, size.height * 0.35, size.width, size.height * 0.65), earthPaint);
+    final earthPaint = Paint()
+      ..color = const Color(0xFF3D2010).withValues(alpha: 0.8);
+    canvas.drawRect(
+        Rect.fromLTWH(0, size.height * 0.35, size.width, size.height * 0.65),
+        earthPaint);
 
     final crackPaint = Paint()
       ..color = const Color(0xFF1A0A02).withValues(alpha: 0.7)
@@ -295,9 +314,12 @@ class _ScenePainter extends CustomPainter {
             const Color(0xFF0A3A5C).withValues(alpha: 0.7),
             Colors.transparent,
           ],
-        ).createShader(Rect.fromCenter(center: center, width: poolRx * 2, height: poolRy * 2));
+        ).createShader(Rect.fromCenter(
+            center: center, width: poolRx * 2, height: poolRy * 2));
       canvas.drawOval(
-          Rect.fromCenter(center: center, width: poolRx * 2, height: poolRy * 2), poolPaint);
+          Rect.fromCenter(
+              center: center, width: poolRx * 2, height: poolRy * 2),
+          poolPaint);
     }
 
     // Heat shimmer lines
@@ -326,12 +348,11 @@ class _ScenePainter extends CustomPainter {
     final bankH = size.height * 0.22;
     _fillGrad(canvas, Rect.fromLTWH(0, 0, size.width, bankH),
         const Color(0xFF1A1208), const Color(0xFF110C05));
-    _fillGrad(canvas,
-        Rect.fromLTWH(0, size.height - bankH, size.width, bankH),
+    _fillGrad(canvas, Rect.fromLTWH(0, size.height - bankH, size.width, bankH),
         const Color(0xFF110C05), const Color(0xFF1A1208));
 
-    final riverColor =
-        Color.lerp(const Color(0xFF0D4A6E), const Color(0xFF4A1A0A), progress * 0.6)!;
+    final riverColor = Color.lerp(
+        const Color(0xFF0D4A6E), const Color(0xFF4A1A0A), progress * 0.6)!;
     final riverRect =
         Rect.fromLTWH(0, bankH, size.width, size.height - bankH * 2);
     _fillGrad(canvas, riverRect, riverColor, riverColor.withValues(alpha: 0.8));
@@ -345,8 +366,7 @@ class _ScenePainter extends CustomPainter {
       final xBase = size.width * (0.05 + i * 0.12);
       final p = Path()..moveTo(xBase, riverRect.top - 2);
       for (double dy = 0; dy < bankH * 0.85; dy += 2) {
-        p.lineTo(
-            xBase + math.sin(dy * 0.25 + ambient * math.pi * 2 + i) * 5,
+        p.lineTo(xBase + math.sin(dy * 0.25 + ambient * math.pi * 2 + i) * 5,
             riverRect.top - 2 - dy);
       }
       canvas.drawPath(p, shimPaint);
@@ -361,8 +381,8 @@ class _ScenePainter extends CustomPainter {
       final px = size.width * (0.05 + seed * 0.85);
       final py = riverRect.center.dy +
           math.sin(seed * math.pi * 2) * riverRect.height * 0.25;
-      canvas.drawCircle(
-          Offset(px, py), 6 + rand.nextDouble() * 10 + progress * 8, algaePaint);
+      canvas.drawCircle(Offset(px, py),
+          6 + rand.nextDouble() * 10 + progress * 8, algaePaint);
     }
 
     // Edge glow
@@ -373,6 +393,103 @@ class _ScenePainter extends CustomPainter {
         colors: [
           Colors.transparent,
           Colors.deepOrangeAccent.withValues(alpha: progress * 0.25),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), glowPaint);
+  }
+
+  // ── Snow Melt ──────────────────────────────────────────────────────────────
+
+  void _paintSnowMelt(Canvas canvas, Size size) {
+    _fillGrad(canvas, Rect.fromLTWH(0, 0, size.width, size.height),
+        const Color(0xFF0A1018), const Color(0xFF0D1822));
+
+    // Snow-capped mountain silhouette
+    final mountainPaint = Paint()..color = const Color(0xFF1A2A3A);
+    final mountain = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(0, size.height * 0.65)
+      ..quadraticBezierTo(size.width * 0.12, size.height * 0.55,
+          size.width * 0.22, size.height * 0.38)
+      ..quadraticBezierTo(size.width * 0.32, size.height * 0.22,
+          size.width * 0.40, size.height * 0.14)
+      ..quadraticBezierTo(size.width * 0.50, size.height * 0.04,
+          size.width * 0.58, size.height * 0.14)
+      ..quadraticBezierTo(size.width * 0.68, size.height * 0.28,
+          size.width * 0.78, size.height * 0.42)
+      ..quadraticBezierTo(size.width * 0.88, size.height * 0.55,
+          size.width, size.height * 0.60)
+      ..lineTo(size.width, size.height)
+      ..close();
+    canvas.drawPath(mountain, mountainPaint);
+
+    // Snow cover shrinking with progress
+    final snowLine = size.height * (0.04 + progress * 0.22);
+    final snowPaint = Paint()..color = Colors.white.withValues(alpha: 0.88);
+    final snow = Path()
+      ..moveTo(size.width * 0.28, snowLine + size.height * 0.18)
+      ..quadraticBezierTo(size.width * 0.34, snowLine + size.height * 0.06,
+          size.width * 0.40, snowLine)
+      ..quadraticBezierTo(size.width * 0.50, snowLine - size.height * 0.04,
+          size.width * 0.58, snowLine)
+      ..quadraticBezierTo(size.width * 0.65, snowLine + size.height * 0.08,
+          size.width * 0.72, snowLine + size.height * 0.20)
+      ..close();
+    canvas.drawPath(snow, snowPaint);
+
+    // Meltwater river in valley
+    final riverTop = size.height * 0.60;
+    final riverH = size.height * 0.18;
+    final riverRect = Rect.fromLTWH(0, riverTop, size.width, riverH);
+    _fillGrad(canvas, riverRect,
+        const Color(0xFF1A7AAA).withValues(alpha: 0.85),
+        const Color(0xFF0A3A5C));
+
+    // Turbulent flow lines
+    final flowPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.18)
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    for (int i = 0; i < 4; i++) {
+      final yBase = riverTop + riverH * (i + 1) / 5;
+      final p = Path()..moveTo(0, yBase);
+      for (double x = 0; x <= size.width; x += 2) {
+        p.lineTo(
+          x,
+          yBase +
+              math.sin((x / size.width * math.pi * 6) +
+                      ambient * math.pi * 2 +
+                      i * 0.8) *
+                  3,
+        );
+      }
+      canvas.drawPath(p, flowPaint);
+    }
+
+    // Melt droplets sliding down the slope
+    final rand = math.Random(55);
+    final dropPaint = Paint()
+      ..color = const Color(0xFF7FDFFF).withValues(alpha: 0.55);
+    for (int i = 0; i < 12; i++) {
+      final seed = i / 12.0;
+      final px = size.width * (0.25 + seed * 0.50);
+      final py = snowLine +
+          size.height * 0.05 +
+          ((seed + ambient * 0.3) % 1.0) *
+              (riverTop - snowLine - size.height * 0.06);
+      canvas.drawCircle(
+          Offset(px, py), 1.5 + rand.nextDouble() * 2.0, dropPaint);
+    }
+
+    // Cold-blue edge glow
+    final glowPaint = Paint()
+      ..shader = RadialGradient(
+        center: Alignment.topCenter,
+        radius: 1.0,
+        colors: [
+          const Color(0xFF00AAFF).withValues(alpha: progress * 0.20),
+          Colors.transparent,
         ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), glowPaint);
@@ -415,6 +532,7 @@ class _SceneOverlay extends StatelessWidget {
         WaterIssueType.flooding => 'FLOOD LEVEL RISING',
         WaterIssueType.drought => 'WATER DEPLETION',
         WaterIssueType.heatStress => 'THERMAL STRESS',
+        WaterIssueType.snowMelt => 'SNOWMELT RUNOFF',
       };
 
   String get _source => switch (issue) {
@@ -422,6 +540,7 @@ class _SceneOverlay extends StatelessWidget {
         WaterIssueType.flooding => 'Active inundation · Copernicus EMS',
         WaterIssueType.drought => 'Soil moisture deficit · C3S Climate',
         WaterIssueType.heatStress => 'River temperature · Sentinel-3',
+        WaterIssueType.snowMelt => 'Snowmelt runoff · Copernicus Sentinel-2',
       };
 
   @override

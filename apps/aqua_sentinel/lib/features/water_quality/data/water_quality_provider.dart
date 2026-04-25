@@ -372,7 +372,7 @@ final _mockByBody = <String, WaterQualityData>{
         sectorName: 'Tourism & Recreation',
         headline: 'Beach advisories in effect',
         detail:
-            'Sanlúcar and nearby beaches have swimming advisories. Peak tourist season经济损失重大.',
+            'Sanlúcar and nearby beaches have swimming advisories. Significant economic losses expected during peak tourist season.',
         status: IndicatorStatus.warning,
         actionRequired: false,
       ),

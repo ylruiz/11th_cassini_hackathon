@@ -19,9 +19,12 @@ const _scenarios = [
         'Satellites detect elevated nitrates and phosphorus in nearly 40 % of European rivers today. '
         'Most of it comes from fertilisers washing off farm fields after rainfall.',
     nowIndicators: [
-      ScenarioIndicator(label: 'Nitrate level', value: '48 mg/L', isPositive: false),
-      ScenarioIndicator(label: 'Phosphorus', value: '0.4 mg/L', isPositive: false),
-      ScenarioIndicator(label: 'River health score', value: '62 / 100', isPositive: true),
+      ScenarioIndicator(
+          label: 'Nitrate level', value: '48 mg/L', isPositive: false),
+      ScenarioIndicator(
+          label: 'Phosphorus', value: '0.4 mg/L', isPositive: false),
+      ScenarioIndicator(
+          label: 'River health score', value: '62 / 100', isPositive: true),
     ],
     whatIfTitle: 'What if farms reduce chemical use by 20 %?',
     whatIfText:
@@ -42,13 +45,17 @@ const _scenarios = [
         'This removed the wetlands and riverside forests that used to slow and absorb excess water.',
     causeFact: 'Europe has lost 80 % of its natural floodplains since 1900',
     nowTitle: "What's happening right now?",
-    nowText:
-        'Climate change is intensifying rainfall events across Europe. '
+    nowText: 'Climate change is intensifying rainfall events across Europe. '
         'Copernicus satellites currently detect 2 active flood zones in the Balkans and Po Valley.',
     nowIndicators: [
-      ScenarioIndicator(label: 'River level above normal', value: '+2.4 m', isPositive: false),
-      ScenarioIndicator(label: 'Flooded area', value: '340 km²', isPositive: false),
-      ScenarioIndicator(label: 'People affected', value: '12,000', isPositive: false),
+      ScenarioIndicator(
+          label: 'River level above normal',
+          value: '+2.4 m',
+          isPositive: false),
+      ScenarioIndicator(
+          label: 'Flooded area', value: '340 km²', isPositive: false),
+      ScenarioIndicator(
+          label: 'People affected', value: '12,000', isPositive: false),
     ],
     whatIfTitle: 'What if we restore riverside wetlands?',
     whatIfText:
@@ -73,9 +80,14 @@ const _scenarios = [
         'Soil moisture across the Iberian Peninsula is 18 % below seasonal average. '
         'Southern Spain reservoirs sit at 42 % capacity — confirmed by Copernicus C3S climate data.',
     nowIndicators: [
-      ScenarioIndicator(label: 'Soil moisture vs. average', value: '−18 %', isPositive: false),
-      ScenarioIndicator(label: 'Reservoir capacity', value: '42 %', isPositive: false),
-      ScenarioIndicator(label: 'River flow vs. normal', value: '0.6 ×', isPositive: false),
+      ScenarioIndicator(
+          label: 'Soil moisture vs. average',
+          value: '−18 %',
+          isPositive: false),
+      ScenarioIndicator(
+          label: 'Reservoir capacity', value: '42 %', isPositive: false),
+      ScenarioIndicator(
+          label: 'River flow vs. normal', value: '0.6 ×', isPositive: false),
     ],
     whatIfTitle: 'What if farms switch to smarter irrigation?',
     whatIfText:
@@ -100,9 +112,12 @@ const _scenarios = [
         '3 major rivers in southern Europe are at or above critical temperature thresholds. '
         'Warm water holds less oxygen, which suffocates fish and triggers harmful algae blooms.',
     nowIndicators: [
-      ScenarioIndicator(label: 'Water temperature', value: '24 °C', isPositive: false),
-      ScenarioIndicator(label: 'Dissolved oxygen', value: '5.8 mg/L', isPositive: false),
-      ScenarioIndicator(label: 'Algae bloom risk', value: 'HIGH', isPositive: false),
+      ScenarioIndicator(
+          label: 'Water temperature', value: '24 °C', isPositive: false),
+      ScenarioIndicator(
+          label: 'Dissolved oxygen', value: '5.8 mg/L', isPositive: false),
+      ScenarioIndicator(
+          label: 'Algae bloom risk', value: 'HIGH', isPositive: false),
     ],
     whatIfTitle: 'What if we plant trees along riverbanks?',
     whatIfText:
@@ -114,5 +129,38 @@ const _scenarios = [
       'Native fish return',
     ],
     source: 'Copernicus Sentinel-3 / EEA',
+  ),
+  WaterIssueScenario(
+    type: WaterIssueType.snowMelt,
+    causeTitle: 'How does snow melt affect rivers?',
+    causeText:
+        'Mountain snowpacks act as natural water reservoirs. When snow melts rapidly, '
+        'it releases large volumes of water into rivers downstream, causing floods. '
+        'Less snow also means less water during summer dry seasons.',
+    causeFact: 'Alps have lost 30 % of snow volume since 1980',
+    nowTitle: "What's happening right now?",
+    nowText:
+        'Current snow coverage in European mountain ranges ranges from 25-90%. '
+        'Melt rates are accelerating in the Alps and Pyrenees due to warmer spring temperatures. '
+        'Fast-melt zones detected in Southern Alps and Pyrenees.',
+    nowIndicators: [
+      ScenarioIndicator(
+          label: 'Alps snow coverage', value: '68 %', isPositive: false),
+      ScenarioIndicator(
+          label: 'Fast melt zones', value: '3 active', isPositive: false),
+      ScenarioIndicator(
+          label: 'Downstream river level', value: '+1.8 m', isPositive: false),
+    ],
+    whatIfTitle: 'What if snow melts 2 weeks earlier + less winter snow?',
+    whatIfText:
+        'Earlier snowmelt combined with reduced snowpack creates a double impact: '
+        'immediate flooding risk followed by summer drought. Rivers could see 40% less flow '
+        'by late summer, affecting water supply, agriculture, and ecosystems.',
+    whatIfImpacts: [
+      'Spring flood risk +40%',
+      'Summer drought severity +35%',
+      'Water supply for 15 M at risk',
+    ],
+    source: 'Copernicus Sentinel-1 / Sentinel-2',
   ),
 ];
