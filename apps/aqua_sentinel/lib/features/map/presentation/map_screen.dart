@@ -72,7 +72,7 @@ class _MapViewState extends ConsumerState<MapView> {
                 child: Column(
                   children: [
                     if (selectedBody != null)
-                      _buildScenarioSelector(selectedBody),
+                      _buildScenarioSelector(selectedBody, context),
                     Expanded(
                       child: FlutterMap(
                         mapController: _mapController,
@@ -118,7 +118,7 @@ class _MapViewState extends ConsumerState<MapView> {
     (WaterIssueType.snowMelt, 'Snow Melt', Color(0xFF74B9FF)),
   ];
 
-  Widget _buildScenarioSelector(WaterBodyInfo body) {
+  Widget _buildScenarioSelector(WaterBodyInfo body, BuildContext context) {
     final selectedIssue = ref.watch(selectedIssueTypeProvider);
 
     return Container(
@@ -203,6 +203,50 @@ class _MapViewState extends ConsumerState<MapView> {
                     ),
                   );
                 }).toList(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Simulation running for ${selectedIssue.name}...',
+                    style: GoogleFonts.inter(color: Colors.white),
+                  ),
+                  backgroundColor: const Color(0xFF0D1B2A),
+                ),
+              );
+            },
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.greenAccent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: Colors.greenAccent.withValues(alpha: 0.5)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(PhosphorIconsRegular.play,
+                        color: Colors.greenAccent, size: 13),
+                    const SizedBox(width: 6),
+                    Text(
+                      'RUN SIMULATION',
+                      style: GoogleFonts.spaceGrotesk(
+                        color: Colors.greenAccent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

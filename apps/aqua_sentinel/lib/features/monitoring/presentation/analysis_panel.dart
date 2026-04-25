@@ -5,8 +5,6 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../models/environmental_analysis.dart';
 import '../data/monitoring_provider.dart';
-import '../../simulator/data/simulator_provider.dart';
-import '../../simulator/models/water_issue_scenario.dart';
 
 class AnalysisPanel extends ConsumerStatefulWidget {
   const AnalysisPanel({super.key});
@@ -22,7 +20,7 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -35,7 +33,6 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
   Widget build(BuildContext context) {
     final selectedBody = ref.watch(selectedWaterBodyProvider);
     final cs = Theme.of(context).colorScheme;
-    final viewMode = ref.watch(viewModeProvider);
 
     if (selectedBody == null) {
       return _buildEmptyState(cs);
@@ -48,7 +45,7 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
       color: const Color(0xFF060E1A),
       child: Column(
         children: [
-          _buildHeader(selectedBody, cs, viewMode),
+          _buildHeader(selectedBody, cs),
           _buildTabBar(cs),
           Expanded(
             child: analysisAsync.when(
@@ -59,7 +56,6 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
                   _CausesTab(analysis: analysis),
                   _PreventionTab(analysis: analysis),
                   _ImpactsTab(analysis: analysis),
-                  _SimulateTab(),
                 ],
               ),
               loading: () => const Center(
@@ -113,7 +109,7 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
     );
   }
 
-  Widget _buildHeader(WaterBodyInfo body, ColorScheme cs, ViewMode viewMode) {
+  Widget _buildHeader(WaterBodyInfo body, ColorScheme cs) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
@@ -169,84 +165,7 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          _buildViewModeToggle(viewMode),
         ],
-      ),
-    );
-  }
-
-  Widget _buildViewModeToggle(ViewMode viewMode) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: const Color(0xFF060E1A),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildToggleButton(
-              label: 'MONITOR',
-              icon: PhosphorIconsRegular.chartLineUp,
-              isSelected: viewMode == ViewMode.monitor,
-              onTap: () {
-                ref.read(viewModeProvider.notifier).state = ViewMode.monitor;
-                _tabController.animateTo(0);
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _buildToggleButton(
-              label: 'SIMULATE',
-              icon: PhosphorIconsRegular.flask,
-              isSelected: viewMode == ViewMode.simulate,
-              onTap: () {
-                ref.read(viewModeProvider.notifier).state = ViewMode.simulate;
-                _tabController.animateTo(4);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildToggleButton({
-    required String label,
-    required PhosphorIconData icon,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF00D4FF) : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? const Color(0xFF060E1A) : Colors.white38,
-              size: 16,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: GoogleFonts.spaceGrotesk(
-                color: isSelected ? const Color(0xFF060E1A) : Colors.white38,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -273,7 +192,6 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
           Tab(text: 'CAUSES'),
           Tab(text: 'PREVENTION'),
           Tab(text: 'IMPACT'),
-          Tab(text: 'SIMULATE'),
         ],
       ),
     );
@@ -936,237 +854,3 @@ class _ImpactMetric extends StatelessWidget {
   }
 }
 
-class _SimulateTab extends ConsumerWidget {
-  const _SimulateTab();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selectedIssue = ref.watch(selectedIssueTypeProvider);
-    final scenarios = ref.watch(waterScenariosProvider);
-    final scenario = scenarios.firstWhere((s) => s.type == selectedIssue);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'SIMULATION',
-            style: GoogleFonts.spaceGrotesk(
-              color: Colors.white38,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.5,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _IssueSelector(
-            selected: selectedIssue,
-            onChanged: (type) {
-              ref.read(selectedIssueTypeProvider.notifier).state = type;
-            },
-          ),
-          const SizedBox(height: 16),
-          _ScenarioCard(scenario: scenario),
-          const SizedBox(height: 16),
-          _RunSimulationButton(scenario: scenario),
-        ],
-      ),
-    );
-  }
-}
-
-class _IssueSelector extends StatelessWidget {
-  final WaterIssueType selected;
-  final ValueChanged<WaterIssueType> onChanged;
-
-  const _IssueSelector({
-    required this.selected,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: WaterIssueType.values.map((type) {
-        final isSelected = type == selected;
-        final color = _getIssueColor(type);
-
-        return GestureDetector(
-          onTap: () => onChanged(type),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? color.withValues(alpha: 0.2)
-                  : const Color(0xFF0D1B2A),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isSelected ? color : color.withValues(alpha: 0.3),
-              ),
-            ),
-            child: Text(
-              _getIssueLabel(type),
-              style: GoogleFonts.spaceGrotesk(
-                color: isSelected ? color : Colors.white54,
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Color _getIssueColor(WaterIssueType type) {
-    switch (type) {
-      case WaterIssueType.pollution:
-        return Colors.orangeAccent;
-      case WaterIssueType.flooding:
-        return const Color(0xFF00D4FF);
-      case WaterIssueType.drought:
-        return const Color(0xFFFFB300);
-      case WaterIssueType.heatStress:
-        return Colors.deepOrangeAccent;
-      case WaterIssueType.snowMelt:
-        return const Color(0xFF88CCFF);
-    }
-  }
-
-  String _getIssueLabel(WaterIssueType type) {
-    switch (type) {
-      case WaterIssueType.pollution:
-        return 'Pollution';
-      case WaterIssueType.flooding:
-        return 'Flooding';
-      case WaterIssueType.drought:
-        return 'Drought';
-      case WaterIssueType.heatStress:
-        return 'Heat Stress';
-      case WaterIssueType.snowMelt:
-        return 'Snow Melt';
-    }
-  }
-}
-
-class _ScenarioCard extends StatelessWidget {
-  final WaterIssueScenario scenario;
-
-  const _ScenarioCard({required this.scenario});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D1B2A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            scenario.whatIfTitle,
-            style: GoogleFonts.spaceGrotesk(
-              color: Colors.greenAccent,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            scenario.whatIfText,
-            style: GoogleFonts.inter(
-              color: Colors.white70,
-              fontSize: 12,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'PROJECTED OUTCOMES',
-            style: GoogleFonts.spaceGrotesk(
-              color: Colors.white38,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.5,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...scenario.whatIfImpacts.map((impact) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  children: [
-                    const Icon(PhosphorIconsRegular.caretRight,
-                        color: Colors.greenAccent, size: 12),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        impact,
-                        style: GoogleFonts.inter(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )),
-        ],
-      ),
-    );
-  }
-}
-
-class _RunSimulationButton extends StatelessWidget {
-  final WaterIssueScenario scenario;
-
-  const _RunSimulationButton({required this.scenario});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.greenAccent,
-          foregroundColor: const Color(0xFF060E1A),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Simulation running for ${scenario.type.name}...',
-                style: GoogleFonts.inter(),
-              ),
-              backgroundColor: const Color(0xFF0D1B2A),
-            ),
-          );
-        },
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const PhosphorIcon(PhosphorIconsRegular.play),
-            const SizedBox(width: 8),
-            Text(
-              'RUN SIMULATION',
-              style: GoogleFonts.spaceGrotesk(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

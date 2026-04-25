@@ -1,4 +1,3 @@
-import 'package:aqua_sentinel/features/simulator/presentation/widgets/simulator_view.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -127,17 +126,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   setState(() => _alarmsPanelOpen = !_alarmsPanelOpen),
             ),
             const Expanded(child: MapView()),
-          ],
-        ),
-        Column(
-          children: [
-            _TopBar(
-              isWide: isWide,
-              alarmCount: activeAlarms.length,
-              onBellPressed: () =>
-                  setState(() => _alarmsPanelOpen = !_alarmsPanelOpen),
-            ),
-            const Expanded(child: SimulatorView()),
           ],
         ),
         Column(
