@@ -202,6 +202,60 @@ class AlarmsNotifier extends AsyncNotifier<List<Alarm>> {
       recommendedAction:
           'Increase water sampling at public beaches. Prepare public advisory for beach operators.',
     ),
+    Alarm(
+      id: 'alarm-006',
+      type: AlarmType.flood,
+      severity: AlarmSeverity.critical,
+      status: AlarmStatus.active,
+      location: AlarmLocation(latitude: 48.12, longitude: 21.40),
+      triggerType: TriggerType.threshold,
+      triggeredBy: 'Copernicus EMS activation EMSR-731 — Tisza flood stage 4',
+      message: 'Severe flooding on Tisza River — 1,200 km² inundated near Tokaj',
+      sourceDataId: 'tisza-flood-001',
+      createdAt: '2026-04-25T04:00:00Z',
+      municipality: 'Tokaj Region, Hungary',
+      populationAtRisk: 85000,
+      impactStatement:
+          'Record flood levels near Tokaj. Vineyards and cropland submerged. Salt contamination from upstream mining brine detected in floodwaters.',
+      recommendedAction:
+          'Activate emergency flood barriers. Issue evacuation guidance for flood zones. Alert downstream communities in Serbia.',
+    ),
+    Alarm(
+      id: 'alarm-007',
+      type: AlarmType.environmental,
+      severity: AlarmSeverity.high,
+      status: AlarmStatus.active,
+      location: AlarmLocation(latitude: 44.90, longitude: 11.62),
+      triggerType: TriggerType.threshold,
+      triggeredBy: 'Copernicus C3S drought index D4 — flow at 15% of seasonal average',
+      message: 'Critical drought on Po River — industrial pollutants unmitigated',
+      sourceDataId: 'po-drought-001',
+      createdAt: '2026-04-25T08:00:00Z',
+      municipality: 'Po Delta, Italy',
+      populationAtRisk: 1200000,
+      impactStatement:
+          'Record-low river flow is concentrating industrial pollutants downstream of Milan. Ammonia above safe limits. Fish kills reported near Piacenza.',
+      recommendedAction:
+          'Issue drinking water alert for Po Delta municipalities. Enforce emergency industrial discharge limits. Increase monitoring to 6-hour intervals.',
+    ),
+    Alarm(
+      id: 'alarm-008',
+      type: AlarmType.waterQuality,
+      severity: AlarmSeverity.critical,
+      status: AlarmStatus.active,
+      location: AlarmLocation(latitude: 41.52, longitude: 26.04),
+      triggerType: TriggerType.threshold,
+      triggeredBy: 'Sentinel-2 MSI heavy metal spectral anomaly z-score > 4.8',
+      message: 'Lead contamination 5× EU limit on Maritsa River — mining discharge',
+      sourceDataId: 'maritsa-002',
+      createdAt: '2026-04-25T02:00:00Z',
+      municipality: 'Plovdiv Region, Bulgaria',
+      populationAtRisk: 180000,
+      impactStatement:
+          'Lead at 52 µg/L — 5× EU drinking water limit. Mining discharge confirmed source. Bottled water being distributed to 45,000 residents downstream.',
+      recommendedAction:
+          'Maintain drinking water advisory for all downstream municipalities. Emergency filtration at all intakes. Investigate mine discharge permits urgently.',
+    ),
   ];
 }
 
