@@ -1,6 +1,9 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+
+import '../../map/presentation/map_screen.dart';
+import '../../simulator/presentation/simulator_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_globe_3d/flutter_globe_3d.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -35,6 +38,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     super.dispose();
   }
 
+  void _onNavSelect(int i) {
+    setState(() => _selectedNav = i);
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
@@ -48,24 +55,28 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               _Sidebar(
                 selected: _selectedNav,
                 expanded: _sidebarExpanded,
-                onSelect: (i) => setState(() => _selectedNav = i),
+                onSelect: _onNavSelect,
                 onToggle: () =>
                     setState(() => _sidebarExpanded = !_sidebarExpanded),
               ),
               Expanded(child: _buildMain(context, isWide)),
-              _RightPanel(),
             ])
           : _buildMain(context, isWide),
     );
   }
 
   Widget _buildMain(BuildContext context, bool isWide) {
-    return Column(
+    return IndexedStack(
+      index: _selectedNav,
       children: [
-        _TopBar(isWide: isWide),
-        Expanded(
-          child: _GlobeHero(controller: _earthController),
+        Column(
+          children: [
+            _TopBar(isWide: isWide),
+            Expanded(child: _GlobeHero(controller: _earthController)),
+          ],
         ),
+        const MapView(),
+        const SimulatorView(),
       ],
     );
   }
@@ -77,8 +88,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         selected: _selectedNav,
         expanded: true,
         onSelect: (i) {
-          setState(() => _selectedNav = i);
           Navigator.of(context).pop();
+          _onNavSelect(i);
         },
         onToggle: () {},
       ),
@@ -103,10 +114,8 @@ class _Sidebar extends StatelessWidget {
 
   static const _items = [
     (PhosphorIconsRegular.squaresFour, 'Dashboard'),
-    (PhosphorIconsRegular.mapTrifold, 'Water Map'),
-    (PhosphorIconsRegular.bellRinging, 'Alerts'),
-    (PhosphorIconsRegular.slidersHorizontal, 'Simulator'),
-    (PhosphorIconsRegular.testTube, 'Water Quality'),
+    (PhosphorIconsRegular.mapTrifold, 'Monitoring'),
+    (PhosphorIconsRegular.slidersHorizontal, 'Simulation'),
   ];
 
   static const _bottom = [
@@ -423,13 +432,10 @@ class _GlobeHeroState extends State<_GlobeHero> {
                             texture:
                                 const AssetImage('assets/earth_texture.png'),
                             initialScale: 1.0,
-                          )
-                              .animate()
-                              .fadeIn(duration: 900.ms)
-                              .scale(
-                                  begin: const Offset(0.8, 0.8),
-                                  duration: 900.ms,
-                                  curve: Curves.easeOutBack),
+                          ).animate().fadeIn(duration: 900.ms).scale(
+                              begin: const Offset(0.8, 0.8),
+                              duration: 900.ms,
+                              curve: Curves.easeOutBack),
                         ),
                       ),
                     ),
@@ -448,7 +454,8 @@ class _GlobeHeroState extends State<_GlobeHero> {
                 children: [
                   _ZoomButton(icon: PhosphorIconsRegular.plus, onTap: _zoomIn),
                   const SizedBox(height: 4),
-                  _ZoomButton(icon: PhosphorIconsRegular.minus, onTap: _zoomOut),
+                  _ZoomButton(
+                      icon: PhosphorIconsRegular.minus, onTap: _zoomOut),
                 ],
               ),
             ),
@@ -474,8 +481,8 @@ class _ZoomButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFF0D1B2A),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-              color: const Color(0xFF00D4FF).withValues(alpha: 0.3)),
+          border:
+              Border.all(color: const Color(0xFF00D4FF).withValues(alpha: 0.3)),
         ),
         child: Icon(icon, color: const Color(0xFF00D4FF), size: 16),
       ),
@@ -537,8 +544,11 @@ class _SpectralFeedHeader extends StatelessWidget {
                   color: Color(0xFF00D4FF),
                   shape: BoxShape.circle,
                 ),
-              ).animate(onPlay: (c) => c.repeat()).fadeIn().then().fadeOut(
-                  duration: 800.ms),
+              )
+                  .animate(onPlay: (c) => c.repeat())
+                  .fadeIn()
+                  .then()
+                  .fadeOut(duration: 800.ms),
               const SizedBox(width: 6),
               Text(
                 'REAL-TIME SPECTRAL FEED',
@@ -615,201 +625,14 @@ class _CoordChip extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text('$label ',
-            style: GoogleFonts.spaceGrotesk(color: Colors.white38, fontSize: 10)),
+            style:
+                GoogleFonts.spaceGrotesk(color: Colors.white38, fontSize: 10)),
         Text(value,
             style: GoogleFonts.spaceGrotesk(
               color: const Color(0xFF00D4FF),
               fontSize: 10,
               fontWeight: FontWeight.w600,
             )),
-      ],
-    );
-  }
-}
-
-// ─── Right panel (stats) ─────────────────────────────────────────────────────
-
-class _RightPanel extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 220,
-      color: const Color(0xFF060E1A),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 56),
-            _StatCard(
-              label: 'WATER QUALITY INDEX',
-              value: '86.4k',
-              delta: '+12% from prev cycle',
-              deltaPositive: true,
-              icon: PhosphorIconsRegular.drop,
-            ).animate().fadeIn(delay: 200.ms),
-            const SizedBox(height: 12),
-            _StatCard(
-              label: 'ACTIVE ALERTS',
-              value: '03',
-              delta: 'Sub-surface anomaly',
-              deltaPositive: false,
-              icon: PhosphorIconsRegular.warning,
-            ).animate().fadeIn(delay: 300.ms),
-            const SizedBox(height: 12),
-            _StatCard(
-              label: 'GLOBAL COVERAGE',
-              value: '98',
-              delta: 'Buffer/Night',
-              deltaPositive: true,
-              icon: PhosphorIconsRegular.globeHemisphereWest,
-            ).animate().fadeIn(delay: 400.ms),
-            const SizedBox(height: 20),
-            _ScanRegionCard().animate().fadeIn(delay: 500.ms),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.delta,
-    required this.deltaPositive,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final String delta;
-  final bool deltaPositive;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    const primary = Color(0xFF00D4FF);
-    final deltaColor =
-        deltaPositive ? Colors.greenAccent : const Color(0xFFFF4757);
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D1B2A),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: primary.withValues(alpha: 0.12)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: primary, size: 14),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  label,
-                  style: GoogleFonts.spaceGrotesk(
-                    color: Colors.white38,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: GoogleFonts.spaceGrotesk(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            delta,
-            style: GoogleFonts.inter(color: deltaColor, fontSize: 10),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ScanRegionCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D1B2A),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-            color: const Color(0xFF00D4FF).withValues(alpha: 0.12)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'ACTIVE SCAN REGION',
-            style: GoogleFonts.spaceGrotesk(
-              color: Colors.white38,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.2,
-            ),
-          ),
-          const SizedBox(height: 10),
-          _RegionChip(label: 'Balkans', severity: 'HIGH'),
-          const SizedBox(height: 6),
-          _RegionChip(label: 'Iberian Peninsula', severity: 'MED'),
-          const SizedBox(height: 6),
-          _RegionChip(label: 'Northern Italy', severity: 'LOW'),
-        ],
-      ),
-    );
-  }
-}
-
-class _RegionChip extends StatelessWidget {
-  const _RegionChip({required this.label, required this.severity});
-  final String label;
-  final String severity;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = switch (severity) {
-      'HIGH' => const Color(0xFFFF4757),
-      'MED' => Colors.orangeAccent,
-      _ => Colors.greenAccent,
-    };
-    return Row(
-      children: [
-        Container(
-          width: 6,
-          height: 6,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(label,
-              style: GoogleFonts.inter(color: Colors.white70, fontSize: 11)),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(3),
-          ),
-          child: Text(severity,
-              style: GoogleFonts.spaceGrotesk(
-                  color: color, fontSize: 8, fontWeight: FontWeight.w700)),
-        ),
       ],
     );
   }
