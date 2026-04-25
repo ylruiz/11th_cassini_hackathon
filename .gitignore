@@ -4,7 +4,7 @@
 .LSOverride
 
 # --- data
-./python_analysis/data/
+python_analysis/data/*
 
 # ── IDEs ─────────────────────────────────────────────────────────────────────
 .idea/
