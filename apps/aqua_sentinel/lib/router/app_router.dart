@@ -3,8 +3,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/map/presentation/map_screen.dart';
-import '../features/water_quality/presentation/water_quality_screen.dart';
-import '../features/alerts/presentation/alerts_screen.dart';
+import '../features/simulator/presentation/simulator_screen.dart';
 
 part 'app_router.g.dart';
 part 'app_router.gr.dart';
@@ -15,8 +14,7 @@ class AppRouter extends RootStackRouter {
   List<AutoRoute> get routes => [
         AutoRoute(page: DashboardRoute.page, initial: true),
         AutoRoute(page: MapRoute.page),
-        AutoRoute(page: WaterQualityRoute.page),
-        AutoRoute(page: AlertsRoute.page),
+        AutoRoute(page: SimulatorRoute.page),
       ];
 }
 

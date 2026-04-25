@@ -5,146 +5,141 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../../monitoring/data/monitoring_provider.dart';
+import '../../monitoring/models/environmental_analysis.dart';
+import '../../monitoring/presentation/analysis_panel.dart';
+
 @RoutePage()
-class MapScreen extends ConsumerStatefulWidget {
+class MapScreen extends StatelessWidget {
   const MapScreen({super.key});
 
   @override
-  ConsumerState<MapScreen> createState() => _MapScreenState();
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Color(0xFF060E1A),
+      body: MapView(),
+    );
+  }
 }
 
-class _MapScreenState extends ConsumerState<MapScreen> {
+class MapView extends ConsumerStatefulWidget {
+  const MapView({super.key});
+
+  @override
+  ConsumerState<MapView> createState() => _MapViewState();
+}
+
+class _MapViewState extends ConsumerState<MapView> {
   final MapController _mapController = MapController();
-  _LayerMode _activeLayer = _LayerMode.base;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: cs.surface,
-        title: Row(
-          children: [
-            PhosphorIcon(PhosphorIcons.mapTrifold(), color: cs.primary),
-            const SizedBox(width: 8),
-            const Text('Water Map'),
-          ],
-        ),
-      ),
-      body: Stack(
-        children: [
-          FlutterMap(
+    final selectedBody = ref.watch(selectedWaterBodyProvider);
+
+    return Row(
+      children: [
+        Expanded(
+          flex: 6,
+          child: FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: const LatLng(48.8, 10.0),
+              initialCenter: const LatLng(46.0, 15.0),
               initialZoom: 4.5,
+              onTap: (_, point) => _handleMapTap(point),
             ),
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'eu.cassini.aqua_sentinel',
               ),
-              if (_activeLayer == _LayerMode.copernicus)
-                TileLayer(
-                  urlTemplate:
-                      'https://maps.googleapis.com/maps/vt?pb=!1m5!1m4!1i{z}!2i{x}!3i{y}!4i256',
-                  tileDisplay: const TileDisplay.instantaneous(opacity: 0.5),
-                ),
+              MarkerLayer(
+                markers: waterBodies.map(_buildMarker).toList(),
+              ),
             ],
           ),
-          Positioned(
-            top: 12,
-            right: 12,
-            child: _LayerSelector(
-              active: _activeLayer,
-              onChanged: (mode) => setState(() => _activeLayer = mode),
-            ),
+        ),
+        if (selectedBody != null)
+          const SizedBox(
+            width: 400,
+            child: AnalysisPanel(),
           ),
-        ],
-      ),
+      ],
     );
   }
-}
 
-enum _LayerMode { base, copernicus, flood }
+  Marker _buildMarker(WaterBodyInfo body) {
+    final isSelected = ref.read(selectedWaterBodyProvider)?.id == body.id;
 
-class _LayerSelector extends StatelessWidget {
-  const _LayerSelector({required this.active, required this.onChanged});
-  final _LayerMode active;
-  final ValueChanged<_LayerMode> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(
-          children: [
-            _LayerButton(
-              label: 'Base',
-              icon: PhosphorIconsRegular.mapTrifold,
-              active: active == _LayerMode.base,
-              onTap: () => onChanged(_LayerMode.base),
-            ),
-            const SizedBox(height: 4),
-            _LayerButton(
-              label: 'Copernicus',
-              icon: PhosphorIconsRegular.broadcast,
-              active: active == _LayerMode.copernicus,
-              onTap: () => onChanged(_LayerMode.copernicus),
-            ),
-            const SizedBox(height: 4),
-            _LayerButton(
-              label: 'Flood Risk',
-              icon: PhosphorIcons.warning(),
-              active: active == _LayerMode.flood,
-              onTap: () => onChanged(_LayerMode.flood),
-            ),
-          ],
+    return Marker(
+      point: LatLng(body.latitude, body.longitude),
+      width: isSelected ? 50 : 40,
+      height: isSelected ? 50 : 40,
+      child: GestureDetector(
+        onTap: () {
+          ref.read(selectedWaterBodyProvider.notifier).state = body;
+          _mapController.move(LatLng(body.latitude, body.longitude), 6);
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF00D4FF) : const Color(0xFF0D1B2A),
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFF00D4FF), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF00D4FF).withValues(alpha: 0.4),
+                blurRadius: 8,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Icon(
+            PhosphorIconsRegular.drop,
+            color: isSelected ? Colors.white : const Color(0xFF00D4FF),
+            size: isSelected ? 24 : 18,
+          ),
         ),
       ),
     );
   }
-}
 
-class _LayerButton extends StatelessWidget {
-  const _LayerButton({
-    required this.label,
-    required this.icon,
-    required this.active,
-    required this.onTap,
-  });
-  final String label;
-  final IconData icon;
-  final bool active;
-  final VoidCallback onTap;
+  void _handleMapTap(LatLng point) {
+    for (final body in waterBodies) {
+      if (_calculateDistance(point.latitude, point.longitude, body.latitude, body.longitude) < 100) {
+        ref.read(selectedWaterBodyProvider.notifier).state = body;
+        return;
+      }
+    }
+    ref.read(selectedWaterBodyProvider.notifier).state = null;
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? cs.primary.withOpacity(0.3) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-              color: active ? cs.primary : Colors.transparent, width: 1),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            PhosphorIcon(icon,
-                color: active ? cs.primary : cs.tertiary, size: 16),
-            const SizedBox(width: 6),
-            Text(label,
-                style: TextStyle(
-                    color: active ? cs.primary : cs.tertiary, fontSize: 12)),
-          ],
-        ),
-      ),
-    );
+  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    const p = 0.017453292519943295;
+    final a = 0.5 -
+        _cos((lat2 - lat1) * p) / 2 +
+        _cos(lat1 * p) * _cos(lat2 * p) * (1 - _cos((lon2 - lon1) * p)) / 2;
+    return 12742 * _asin(_sqrt(a));
+  }
+
+  double _cos(double x) {
+    x = x % (2 * 3.14159);
+    double result = 1.0, term = 1.0;
+    for (int i = 1; i <= 10; i++) {
+      term *= -x * x / ((2 * i - 1) * (2 * i));
+      result += term;
+    }
+    return result;
+  }
+
+  double _asin(double x) {
+    if (x >= 1) return 1.570796;
+    if (x <= -1) return -1.570796;
+    return x + (x * x * x) / 6 + (3 * x * x * x * x * x) / 40;
+  }
+
+  double _sqrt(double x) {
+    if (x <= 0) return 0;
+    double g = x / 2;
+    for (int i = 0; i < 10; i++) g = (g + x / g) / 2;
+    return g;
   }
 }

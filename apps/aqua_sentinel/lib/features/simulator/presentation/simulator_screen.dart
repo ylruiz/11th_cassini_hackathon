@@ -9,14 +9,26 @@ import '../data/simulator_provider.dart';
 import '../models/water_issue_scenario.dart';
 
 @RoutePage()
-class SimulatorScreen extends ConsumerStatefulWidget {
+class SimulatorScreen extends StatelessWidget {
   const SimulatorScreen({super.key});
 
   @override
-  ConsumerState<SimulatorScreen> createState() => _SimulatorScreenState();
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Color(0xFF060E1A),
+      body: SimulatorView(),
+    );
+  }
 }
 
-class _SimulatorScreenState extends ConsumerState<SimulatorScreen>
+class SimulatorView extends ConsumerStatefulWidget {
+  const SimulatorView({super.key});
+
+  @override
+  ConsumerState<SimulatorView> createState() => _SimulatorViewState();
+}
+
+class _SimulatorViewState extends ConsumerState<SimulatorView>
     with SingleTickerProviderStateMixin {
   WaterIssueType _issue = WaterIssueType.pollution;
   late final TabController _tabs;
@@ -42,35 +54,22 @@ class _SimulatorScreenState extends ConsumerState<SimulatorScreen>
   Widget build(BuildContext context) {
     final scenarios = ref.watch(waterScenariosProvider);
     final scenario = scenarios.firstWhere((s) => s.type == _issue);
-    final cs = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: cs.surface,
-        title: Row(
-          children: [
-            PhosphorIcon(PhosphorIconsRegular.slidersHorizontal, color: cs.primary),
-            const SizedBox(width: 8),
-            const Text('Water Issue Simulator'),
-          ],
-        ),
-      ),
-      body: Column(
-        children: [
-          _IssueSelector(selected: _issue, onChanged: _selectIssue),
-          _TimelineTabs(controller: _tabs),
-          Expanded(
-            child: TabBarView(
-              controller: _tabs,
-              children: [
-                _CausesTab(scenario: scenario),
-                _NowTab(scenario: scenario),
-                _WhatIfTab(scenario: scenario),
-              ],
-            ),
+    return Column(
+      children: [
+        _IssueSelector(selected: _issue, onChanged: _selectIssue),
+        _TimelineTabs(controller: _tabs),
+        Expanded(
+          child: TabBarView(
+            controller: _tabs,
+            children: [
+              _CausesTab(scenario: scenario),
+              _NowTab(scenario: scenario),
+              _WhatIfTab(scenario: scenario),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
