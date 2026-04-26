@@ -1,0 +1,40 @@
+name: CI/CD — Deploy Frontend to Vercel
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        working-directory: apps/aqua_sentinel
+        run: flutter pub get
+
+      - name: Set production API URL
+        working-directory: apps/aqua_sentinel
+        run: |
+          echo "API_BASE_URL=https://aquasentinel-api.onrender.com" > .env
+          echo "COPERNICUS_WMS_URL=https://maps.googleapis.com/maps/api" >> .env
+
+      - name: Build Flutter web
+        working-directory: apps/aqua_sentinel
+        run: flutter build web --release
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: apps/aqua_sentinel/build/web
+          vercel-args: "--prod"

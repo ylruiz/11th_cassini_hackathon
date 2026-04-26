@@ -40,6 +40,9 @@ dist/
 !.env.example
 !apps/aqua_sentinel/.env
 
+# ── Vercel ───────────────────────────────────────────────────────────────────
+.vercel/
+
 # ── Android native build ─────────────────────────────────────────────────────
 **/android/app/debug/
 **/android/app/profile/
