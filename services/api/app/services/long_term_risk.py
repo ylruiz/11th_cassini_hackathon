@@ -10,7 +10,9 @@ from typing import Any
 
 from app.models.environmental_analysis import (
     AoiBounds,
+    AoiHistory,
     EnvironmentalProblem,
+    HistoryPoint,
     ProblemLocation,
     ProblemType,
     RiskAction,
@@ -20,6 +22,9 @@ from app.models.environmental_analysis import (
     RiskProjection,
     RiskSignal,
     RiskTimeline,
+    RiskWeights,
+    Settlement,
+    SettlementExposure,
     Severity,
 )
 from app.services.copernicus_flood_data import copernicus_flood_service
@@ -27,23 +32,33 @@ from app.services.copernicus_flood_data import copernicus_flood_service
 
 RISK_TIMELINE_CACHE_TTL = timedelta(minutes=15)
 HYDROLOGY_EVIDENCE_PATH = Path(__file__).resolve().parents[1] / "data" / "hydrology_evidence.json"
+SETTLEMENTS_PATH = Path(__file__).resolve().parents[1] / "data" / "alpine_settlements.json"
+HISTORY_PATH = Path(__file__).resolve().parents[1] / "data" / "aoi_history.json"
+SETTLEMENT_BUFFER_KM = 5.0
 logger = logging.getLogger(__name__)
 
 
 class LongTermRiskService:
     def __init__(self) -> None:
-        self._inn_cache: RiskTimeline | None = None
-        self._inn_cached_at: datetime | None = None
         self._aoi_cache: dict[str, tuple[datetime, RiskTimeline]] = {}
         self._hydrology_cache: dict[str, dict[str, Any]] | None = None
+        self._settlements_cache: list[dict[str, Any]] | None = None
+        self._history_cache: dict[str, dict[str, Any]] | None = None
 
-    async def get_risk_timeline(self, water_body_id: str) -> RiskTimeline | None:
+    async def get_risk_timeline(
+        self,
+        water_body_id: str,
+        *,
+        weights: RiskWeights | None = None,
+    ) -> RiskTimeline | None:
         if water_body_id != "inn-river":
             return None
 
-        cached = self._get_cached_inn_timeline()
-        if cached:
-            return cached
+        effective_weights = weights or RiskWeights()
+        cache_key = self._inn_cache_key(effective_weights)
+        cached = self._aoi_cache.get(cache_key)
+        if cached and datetime.now(UTC) - cached[0] <= RISK_TIMELINE_CACHE_TTL:
+            return cached[1]
 
         try:
             flood_analysis = await copernicus_flood_service.get_inn_river_analysis()
@@ -64,44 +79,50 @@ class LongTermRiskService:
             if mock_analysis is None:
                 return None
 
+            mock_problem = mock_analysis.problems[0]
+            fallback_bbox = [
+                mock_problem.location.longitude - 0.2,
+                mock_problem.location.latitude - 0.2,
+                mock_problem.location.longitude + 0.2,
+                mock_problem.location.latitude + 0.2,
+            ]
             timeline = self._build_timeline(
                 water_body_id="inn-river",
                 water_body_name="Inn River",
-                flood_problem=mock_analysis.problems[0],
+                flood_problem=mock_problem,
                 corridor_label="selected Inn River AOI",
+                bbox=fallback_bbox,
+                hydrology_evidence=self._get_hydrology_evidence(
+                    water_body_id="inn-river",
+                    water_body_name="Inn River",
+                ),
                 sentinel2_evidence=None,
+                weights=effective_weights,
             )
-            self._inn_cache = timeline
-            self._inn_cached_at = datetime.now(UTC)
+            self._aoi_cache[cache_key] = (datetime.now(UTC), timeline)
             return timeline
 
+        bbox_values = [
+            flood_analysis.longitude - 0.2,
+            flood_analysis.latitude - 0.2,
+            flood_analysis.longitude + 0.2,
+            flood_analysis.latitude + 0.2,
+        ]
         timeline = self._build_timeline(
             water_body_id="inn-river",
             water_body_name="Inn River",
             flood_problem=flood_analysis.problems[0],
             corridor_label="selected Inn River AOI",
-            bbox=[
-                flood_analysis.longitude - 0.2,
-                flood_analysis.latitude - 0.2,
-                flood_analysis.longitude + 0.2,
-                flood_analysis.latitude + 0.2,
-            ],
+            bbox=bbox_values,
             hydrology_evidence=self._get_hydrology_evidence(
                 water_body_id="inn-river",
                 water_body_name="Inn River",
             ),
-            sentinel2_evidence=await self._get_sentinel2_evidence(
-                [
-                    flood_analysis.longitude - 0.2,
-                    flood_analysis.latitude - 0.2,
-                    flood_analysis.longitude + 0.2,
-                    flood_analysis.latitude + 0.2,
-                ]
-            ),
+            sentinel2_evidence=await self._get_sentinel2_evidence(bbox_values),
+            weights=effective_weights,
         )
 
-        self._inn_cache = timeline
-        self._inn_cached_at = datetime.now(UTC)
+        self._aoi_cache[cache_key] = (datetime.now(UTC), timeline)
         return timeline
 
     async def get_aoi_risk_timeline(
@@ -109,10 +130,12 @@ class LongTermRiskService:
         *,
         label: str,
         bbox: AoiBounds,
+        weights: RiskWeights | None = None,
     ) -> RiskTimeline:
         self._validate_aoi_bounds(bbox)
         bbox_values = [bbox.west, bbox.south, bbox.east, bbox.north]
-        cache_key = self._aoi_cache_key(label, bbox_values)
+        effective_weights = weights or RiskWeights()
+        cache_key = self._aoi_cache_key(label, bbox_values, effective_weights)
         cached = self._aoi_cache.get(cache_key)
         if cached and datetime.now(UTC) - cached[0] <= RISK_TIMELINE_CACHE_TTL:
             return cached[1]
@@ -158,6 +181,7 @@ class LongTermRiskService:
                 water_body_name=label,
             ),
             sentinel2_evidence=sentinel2_evidence,
+            weights=effective_weights,
         )
         self._aoi_cache[cache_key] = (datetime.now(UTC), timeline)
         return timeline
@@ -172,7 +196,9 @@ class LongTermRiskService:
         bbox: list[float],
         hydrology_evidence: dict[str, Any] | None,
         sentinel2_evidence: dict[str, float | str] | None,
+        weights: RiskWeights | None = None,
     ) -> RiskTimeline:
+        effective_weights = weights or RiskWeights()
         has_s2 = sentinel2_evidence is not None
         ndwi_water_fraction = self._evidence_value(sentinel2_evidence, "ndwi_water_fraction")
         low_vegetation_fraction = self._evidence_value(
@@ -184,32 +210,45 @@ class LongTermRiskService:
             sentinel2_evidence, "valid_pixel_fraction"
         )
         discharge_anomaly_fraction = self._hydrology_anomaly_fraction(hydrology_evidence)
+
+        # Apply user-supplied weight knobs to each evidence channel. Weighted
+        # values stay clamped to [0, 1] so projection score thresholds remain
+        # meaningful when a weight is >1.
+        weighted_snow = self._clamp_unit(snow_fraction * effective_weights.snow)
+        weighted_ndwi = self._clamp_unit(ndwi_water_fraction * effective_weights.surface_water)
+        weighted_low_veg = self._clamp_unit(
+            low_vegetation_fraction * effective_weights.vegetation
+        )
+        weighted_anomaly = self._clamp_unit(
+            discharge_anomaly_fraction * effective_weights.hydrology
+        )
+
         confidence = self._confidence_label(has_s2, valid_pixel_fraction)
         observed_flood_pressure = self._screening_signal_severity(flood_problem.severity)
         flood_risk_10 = self._projected_flood_risk(
-            observed_flood_pressure, ndwi_water_fraction, discharge_anomaly_fraction, 10
+            observed_flood_pressure, weighted_ndwi, weighted_anomaly, 10
         )
         flood_risk_20 = self._projected_flood_risk(
-            observed_flood_pressure, ndwi_water_fraction, discharge_anomaly_fraction, 20
+            observed_flood_pressure, weighted_ndwi, weighted_anomaly, 20
         )
         flood_risk_50 = self._projected_flood_risk(
-            observed_flood_pressure, ndwi_water_fraction, discharge_anomaly_fraction, 50
+            observed_flood_pressure, weighted_ndwi, weighted_anomaly, 50
         )
-        landslide_risk_today = self._landslide_risk(low_vegetation_fraction, snow_fraction, 0)
-        landslide_risk_10 = self._landslide_risk(low_vegetation_fraction, snow_fraction, 10)
-        landslide_risk_20 = self._landslide_risk(low_vegetation_fraction, snow_fraction, 20)
-        landslide_risk_50 = self._landslide_risk(low_vegetation_fraction, snow_fraction, 50)
+        landslide_risk_today = self._landslide_risk(weighted_low_veg, weighted_snow, 0)
+        landslide_risk_10 = self._landslide_risk(weighted_low_veg, weighted_snow, 10)
+        landslide_risk_20 = self._landslide_risk(weighted_low_veg, weighted_snow, 20)
+        landslide_risk_50 = self._landslide_risk(weighted_low_veg, weighted_snow, 50)
         discharge_10 = (
             6.0
-            + (snow_fraction * 10.0)
-            + (ndwi_water_fraction * 12.0)
-            + (discharge_anomaly_fraction * 25.0)
+            + (weighted_snow * 10.0)
+            + (weighted_ndwi * 12.0)
+            + (weighted_anomaly * 25.0)
         )
-        discharge_20 = discharge_10 + 7.0 + (low_vegetation_fraction * 5.0)
-        discharge_50 = discharge_20 + 10.0 + (snow_fraction * 8.0)
-        area_10 = 4.0 + (ndwi_water_fraction * 10.0)
-        area_20 = area_10 + 6.0 + (low_vegetation_fraction * 4.0)
-        area_50 = area_20 + 8.0 + (snow_fraction * 6.0)
+        discharge_20 = discharge_10 + 7.0 + (weighted_low_veg * 5.0)
+        discharge_50 = discharge_20 + 10.0 + (weighted_snow * 8.0)
+        area_10 = 4.0 + (weighted_ndwi * 10.0)
+        area_20 = area_10 + 6.0 + (weighted_low_veg * 4.0)
+        area_50 = area_20 + 8.0 + (weighted_snow * 6.0)
         current_signal_severity = observed_flood_pressure
         evidence_metrics = self._build_evidence_metrics(
             flood_problem=flood_problem,
@@ -221,6 +260,7 @@ class LongTermRiskService:
             has_sentinel2=has_s2,
             hydrology_evidence=hydrology_evidence,
         )
+        settlement_exposure = self._compute_settlement_exposure(bbox)
         current_summary = flood_problem.description
         source = flood_problem.source
         if has_s2:
@@ -388,32 +428,7 @@ class LongTermRiskService:
                     summary="Long-horizon stress test derived from current Copernicus evidence plus climate-pressure assumptions; use as prioritization guidance, not a forecast.",
                 ),
             ],
-            impacts=[
-                RiskImpact(
-                    category="Exposure gap",
-                    metric="Building and population layer",
-                    value="Not connected",
-                    detail="Current risk cannot estimate people or assets affected until local cadastral, building footprint, or population grids are added.",
-                ),
-                RiskImpact(
-                    category="Infrastructure",
-                    metric="Road and rail overlay",
-                    value="Required next",
-                    detail="Combine the AOI with OpenStreetMap or official transport layers to identify bridges, roads, and rail corridors intersecting screened water or slope-risk zones.",
-                ),
-                RiskImpact(
-                    category="Hazard model gap",
-                    metric="DEM and slope layer",
-                    value="Pending",
-                    detail="Landslide interpretation needs slope, aspect, geology, and rainfall/saturation layers. Current landslide risk is only an evidence-scaled proxy.",
-                ),
-                RiskImpact(
-                    category="Economic use",
-                    metric="Tourism and agriculture exposure",
-                    value="Pending",
-                    detail="Tourism facilities, farms, and access roads should be layered on top of the AOI to translate hazard screening into economic exposure.",
-                ),
-            ],
+            impacts=self._build_impacts(settlement_exposure),
             actions=[
                 RiskAction(
                     priority="Immediate",
@@ -438,16 +453,93 @@ class LongTermRiskService:
                 ),
             ],
             evidence=evidence_metrics,
+            settlement_exposure=settlement_exposure,
+            weights=effective_weights,
         )
 
-    def _get_cached_inn_timeline(self) -> RiskTimeline | None:
-        if not self._inn_cache or not self._inn_cached_at:
-            return None
+    def _build_impacts(
+        self,
+        settlement_exposure: SettlementExposure | None,
+    ) -> list[RiskImpact]:
+        if settlement_exposure and settlement_exposure.total_settlements > 0:
+            top_names = ", ".join(
+                s.name for s in settlement_exposure.settlements[:5]
+            )
+            extra = (
+                f" (+{settlement_exposure.total_settlements - 5} more)"
+                if settlement_exposure.total_settlements > 5
+                else ""
+            )
+            population_label = (
+                f"~{settlement_exposure.total_population:,} residents"
+            ).replace(",", ".")
+            exposure_impact = RiskImpact(
+                category="Population exposure",
+                metric=(
+                    f"Settlements within {settlement_exposure.buffer_km:.0f} km of AOI"
+                ),
+                value=(
+                    f"{settlement_exposure.total_settlements} settlements, "
+                    f"{population_label}"
+                ),
+                detail=(
+                    f"{settlement_exposure.inside_aoi} inside the AOI, "
+                    f"{settlement_exposure.within_buffer} within the {settlement_exposure.buffer_km:.0f} km buffer. "
+                    f"Top exposure: {top_names}{extra}. "
+                    "Source: curated Statistik Austria municipality cache; replace with live cadastral / GHSL grid for production use."
+                ),
+            )
+        else:
+            exposure_impact = RiskImpact(
+                category="Exposure gap",
+                metric="Building and population layer",
+                value="Not connected",
+                detail=(
+                    "No curated Alpine settlements matched this AOI. Plug in a live cadastral, "
+                    "building-footprint, or GHSL population grid for full coverage."
+                ),
+            )
 
-        if datetime.now(UTC) - self._inn_cached_at > RISK_TIMELINE_CACHE_TTL:
-            return None
+        return [
+            exposure_impact,
+            RiskImpact(
+                category="Infrastructure",
+                metric="Road and rail overlay",
+                value="Required next",
+                detail=(
+                    "Combine the AOI with OpenStreetMap or official transport layers to identify "
+                    "bridges, roads, and rail corridors intersecting screened water or slope-risk zones."
+                ),
+            ),
+            RiskImpact(
+                category="Hazard model gap",
+                metric="DEM and slope layer",
+                value="Pending",
+                detail=(
+                    "Landslide interpretation needs slope, aspect, geology, and rainfall/saturation layers. "
+                    "Current landslide risk is only an evidence-scaled proxy."
+                ),
+            ),
+            RiskImpact(
+                category="Economic use",
+                metric="Tourism and agriculture exposure",
+                value="Pending",
+                detail=(
+                    "Tourism facilities, farms, and access roads should be layered on top of the AOI "
+                    "to translate hazard screening into economic exposure."
+                ),
+            ),
+        ]
 
-        return self._inn_cache
+    def _inn_cache_key(self, weights: RiskWeights) -> str:
+        weights_signature = self._weights_signature(weights)
+        return sha1(f"inn-river:{weights_signature}".encode("utf-8")).hexdigest()
+
+    def _weights_signature(self, weights: RiskWeights) -> str:
+        return (
+            f"snow={weights.snow:.3f};water={weights.surface_water:.3f};"
+            f"veg={weights.vegetation:.3f};hyd={weights.hydrology:.3f}"
+        )
 
     async def _get_sentinel2_evidence(
         self,
@@ -748,9 +840,17 @@ class LongTermRiskService:
         if (bbox.east - bbox.west) > 1.2 or (bbox.north - bbox.south) > 1.2:
             raise ValueError("AOI bbox is too large for interactive screening; keep it below 1.2 degrees per side")
 
-    def _aoi_cache_key(self, label: str, bbox: list[float]) -> str:
+    def _aoi_cache_key(
+        self,
+        label: str,
+        bbox: list[float],
+        weights: RiskWeights,
+    ) -> str:
         rounded = ",".join(f"{value:.4f}" for value in bbox)
-        return sha1(f"{label}:{rounded}".encode("utf-8")).hexdigest()
+        weights_signature = self._weights_signature(weights)
+        return sha1(
+            f"{label}:{rounded}:{weights_signature}".encode("utf-8")
+        ).hexdigest()
 
     def _bbox_area_km2(self, bbox: list[float]) -> float:
         min_lon, min_lat, max_lon, max_lat = bbox
@@ -758,6 +858,183 @@ class LongTermRiskService:
         center_lat = (min_lat + max_lat) / 2
         lon_km = (max_lon - min_lon) * 111.32 * cos(radians(center_lat))
         return abs(lat_km * lon_km)
+
+    def _clamp_unit(self, value: float) -> float:
+        if value < 0.0:
+            return 0.0
+        if value > 1.0:
+            return 1.0
+        return value
+
+    def _compute_settlement_exposure(
+        self,
+        bbox: list[float],
+        buffer_km: float = SETTLEMENT_BUFFER_KM,
+    ) -> SettlementExposure | None:
+        settlements = self._load_settlements()
+        if not settlements:
+            return None
+
+        min_lon, min_lat, max_lon, max_lat = bbox
+        center_lat = (min_lat + max_lat) / 2
+        center_lon = (min_lon + max_lon) / 2
+
+        # Convert the buffer distance to lat/lon padding for a quick
+        # rectangular pre-filter, then refine with a great-circle distance to
+        # the AOI centroid.
+        lat_pad = buffer_km / 111.32
+        lon_pad = buffer_km / (111.32 * max(cos(radians(center_lat)), 0.05))
+
+        matched: list[Settlement] = []
+        inside_aoi = 0
+        within_buffer = 0
+        for entry in settlements:
+            lat = float(entry["lat"])
+            lon = float(entry["lon"])
+            if lat < min_lat - lat_pad or lat > max_lat + lat_pad:
+                continue
+            if lon < min_lon - lon_pad or lon > max_lon + lon_pad:
+                continue
+
+            is_inside = min_lat <= lat <= max_lat and min_lon <= lon <= max_lon
+            distance_km = self._haversine_km(center_lat, center_lon, lat, lon)
+            if not is_inside and distance_km > buffer_km + self._aoi_half_diagonal_km(bbox):
+                continue
+
+            matched.append(
+                Settlement(
+                    name=str(entry["name"]),
+                    latitude=lat,
+                    longitude=lon,
+                    population=int(entry["population"]),
+                    kind=str(entry["kind"]),
+                    region=str(entry["region"]),
+                    distance_km=round(distance_km, 1),
+                )
+            )
+            if is_inside:
+                inside_aoi += 1
+            else:
+                within_buffer += 1
+
+        if not matched:
+            return None
+
+        matched.sort(key=lambda s: (-s.population, s.distance_km))
+        total_population = sum(s.population for s in matched)
+        return SettlementExposure(
+            total_settlements=len(matched),
+            total_population=total_population,
+            inside_aoi=inside_aoi,
+            within_buffer=within_buffer,
+            buffer_km=buffer_km,
+            settlements=matched,
+        )
+
+    def _aoi_half_diagonal_km(self, bbox: list[float]) -> float:
+        min_lon, min_lat, max_lon, max_lat = bbox
+        center_lat = (min_lat + max_lat) / 2
+        lat_km = (max_lat - min_lat) / 2 * 111.32
+        lon_km = (max_lon - min_lon) / 2 * 111.32 * cos(radians(center_lat))
+        return (lat_km**2 + lon_km**2) ** 0.5
+
+    def _haversine_km(
+        self,
+        lat1: float,
+        lon1: float,
+        lat2: float,
+        lon2: float,
+    ) -> float:
+        from math import asin, sin, sqrt
+
+        r_km = 6371.0088
+        phi1 = radians(lat1)
+        phi2 = radians(lat2)
+        d_phi = radians(lat2 - lat1)
+        d_lambda = radians(lon2 - lon1)
+        a = sin(d_phi / 2) ** 2 + cos(phi1) * cos(phi2) * sin(d_lambda / 2) ** 2
+        return 2 * r_km * asin(min(1.0, sqrt(a)))
+
+    def _load_settlements(self) -> list[dict[str, Any]]:
+        if self._settlements_cache is not None:
+            return self._settlements_cache
+
+        try:
+            with SETTLEMENTS_PATH.open("r", encoding="utf-8") as file:
+                data = json.load(file)
+        except FileNotFoundError:
+            self._settlements_cache = []
+            return self._settlements_cache
+
+        settlements = data.get("settlements") if isinstance(data, dict) else None
+        self._settlements_cache = list(settlements) if isinstance(settlements, list) else []
+        return self._settlements_cache
+
+    def get_aoi_history(self, label: str) -> AoiHistory | None:
+        histories = self._load_histories()
+        if not histories:
+            return None
+
+        normalized = self._normalize_history_key(label)
+
+        for entry in histories.values():
+            if not isinstance(entry, dict):
+                continue
+            entry_label = self._normalize_history_key(str(entry.get("label", "")))
+            if entry_label == normalized:
+                return self._history_from_entry(entry)
+            aliases = entry.get("aliases") or []
+            for alias in aliases:
+                if self._normalize_history_key(str(alias)) == normalized:
+                    return self._history_from_entry(entry)
+            # Substring fallback so e.g. "aoi-abc123" labels carrying
+            # "Inn River corridor" still match.
+            if entry_label and entry_label in normalized:
+                return self._history_from_entry(entry)
+
+        return None
+
+    def _history_from_entry(self, entry: dict[str, Any]) -> AoiHistory:
+        points = [
+            HistoryPoint(
+                month=str(point["month"]),
+                ndsi_snow_fraction=float(point["ndsi_snow_fraction"]),
+                efas_anomaly_percent=float(point["efas_anomaly_percent"]),
+            )
+            for point in entry.get("points", [])
+            if isinstance(point, dict)
+        ]
+        return AoiHistory(
+            label=str(entry.get("label", "")),
+            source=str(entry.get("source", "")),
+            provenance=str(entry.get("provenance", "")),
+            points=points,
+        )
+
+    def _normalize_history_key(self, value: str) -> str:
+        return (
+            value.strip()
+            .lower()
+            .replace("ö", "oe")
+            .replace("ü", "ue")
+            .replace("ä", "ae")
+            .replace("ß", "ss")
+        )
+
+    def _load_histories(self) -> dict[str, dict[str, Any]]:
+        if self._history_cache is not None:
+            return self._history_cache
+
+        try:
+            with HISTORY_PATH.open("r", encoding="utf-8") as file:
+                data = json.load(file)
+        except FileNotFoundError:
+            self._history_cache = {}
+            return self._history_cache
+
+        histories = data.get("histories") if isinstance(data, dict) else None
+        self._history_cache = dict(histories) if isinstance(histories, dict) else {}
+        return self._history_cache
 
 
 long_term_risk_service = LongTermRiskService()
