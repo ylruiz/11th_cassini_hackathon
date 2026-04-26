@@ -11,7 +11,7 @@ Full CI/CD: every push to `main` auto-deploys the **backend** (Render) and **fro
 
 | Service | Platform | Deploy Trigger |
 |---------|----------|----------------|
-| Backend (FastAPI) | Render | Auto on every push to `main` |
+| Backend (FastAPI) | Render | Auto via GitHub Actions on every push to `main` |
 | Frontend (Flutter Web) | Vercel | Auto via GitHub Actions on every push to `main` |
 
 ---
@@ -55,7 +55,22 @@ git push origin main
 
 **Backend URL:** `https://aquasentinel-api.onrender.com`
 
-> ✅ From now on, every push to `main` automatically redeploys the backend.
+8. **Enable Deploy Hook (for GitHub Actions):**
+   - In your Render service dashboard, go to **Settings**.
+   - Scroll to **Deploy Hook** and click **Create Deploy Hook**.
+   - Copy the generated URL (e.g., `https://api.render.com/deploy/srv-xxx?key=yyy`).
+
+9. **Add the secret to GitHub:**
+   - Go to your repo → **Settings → Secrets and variables → Actions**.
+   - Click **"New repository secret"**.
+   - Name: `RENDER_DEPLOY_HOOK`
+   - Value: the URL you copied above.
+
+10. **Disable Render's auto-deploy** (to avoid double deploys):
+    - In Render Settings, find **Auto-Deploy** and set it to **No**.
+    - This ensures only the GitHub Action triggers deploys.
+
+> ✅ From now on, every push to `main` automatically redeploys the backend via GitHub Actions.
 
 ---
 
@@ -117,7 +132,7 @@ git push origin main
 ```
 
 **What happens automatically:**
-1. Render sees the push → rebuilds and deploys the backend (~3 min)
+1. GitHub Actions triggers → deploys the backend via Render Deploy Hook (~3 min)
 2. GitHub Actions triggers → builds Flutter web and deploys to Vercel (~5 min)
 
 ---
@@ -161,6 +176,11 @@ Test the Docker build locally:
 ```bash
 cd services/api && docker build -t aquasentinel-api:test .
 ```
+
+### GitHub Actions fails to trigger Render deploy
+- Make sure you added the `RENDER_DEPLOY_HOOK` secret in GitHub repo settings.
+- Make sure the deploy hook URL is correct and the service name matches (`aquasentinel-api`).
+- If you didn't disable Render's auto-deploy, you may see duplicate builds — turn **Auto-Deploy** to **No** in Render Settings.
 
 ### Flutter build fails in CI
 The workflow uses the latest stable Flutter. If you need a specific version, pin it in `.github/workflows/deploy-frontend.yml`.

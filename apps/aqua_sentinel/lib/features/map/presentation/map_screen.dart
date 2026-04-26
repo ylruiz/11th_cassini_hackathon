@@ -14,7 +14,7 @@ import '../../monitoring/providers/monitoring_provider.dart';
 import '../../monitoring/models/environmental_analysis.dart';
 import '../../monitoring/presentation/analysis_panel.dart';
 import '../../simulator/models/water_issue_scenario.dart';
-import '../../simulator/presentation/widgets/simulator_view.dart';
+
 
 /// Set this to a lat/lon to make the map fly to that location.
 /// MapView listens to it and clears it after moving.
@@ -50,7 +50,6 @@ class _MapViewState extends ConsumerState<MapView> {
   Widget build(BuildContext context) {
     final selectedBody = ref.watch(selectedWaterBodyProvider);
     final selectedAoi = ref.watch(selectedAoiProvider);
-    final viewMode = ref.watch(viewModeProvider);
 
     ref.listen<LatLng?>(mapNavigationProvider, (_, target) {
       if (target != null) {
@@ -149,11 +148,9 @@ class _MapViewState extends ConsumerState<MapView> {
           ),
         ),
         if (selectedBody != null || selectedAoi != null)
-          SizedBox(
+          const SizedBox(
             width: 400,
-            child: viewMode == ViewMode.simulate
-                ? const SimulatorView()
-                : const AnalysisPanel(),
+            child: AnalysisPanel(),
           ),
       ],
     );
