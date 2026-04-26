@@ -280,10 +280,10 @@ class _MapViewState extends ConsumerState<MapView> {
           ref.read(selectedAoiProvider.notifier).state = AoiSelection(
             label: mountain.name,
             bbox: AoiBounds(
-              west: mountain.longitude - 2.0,
-              south: mountain.latitude - 2.0,
-              east: mountain.longitude + 2.0,
-              north: mountain.latitude + 2.0,
+              west: mountain.longitude - 0.5,
+              south: mountain.latitude - 0.5,
+              east: mountain.longitude + 0.5,
+              north: mountain.latitude + 0.5,
             ),
           );
           _mapController.move(

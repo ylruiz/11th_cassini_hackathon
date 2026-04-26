@@ -103,6 +103,16 @@ class _GlobeHeroState extends ConsumerState<GlobeHero> {
               mountain.latitude,
               mountain.longitude,
             );
+            ref.read(selectedWaterBodyProvider.notifier).state = null;
+            ref.read(selectedAoiProvider.notifier).state = AoiSelection(
+              label: mountain.name,
+              bbox: AoiBounds(
+                west: mountain.longitude - 0.5,
+                south: mountain.latitude - 0.5,
+                east: mountain.longitude + 0.5,
+                north: mountain.latitude + 0.5,
+              ),
+            );
             widget.onNavigateToMap();
           },
           child: MouseRegion(
