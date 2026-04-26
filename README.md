@@ -50,9 +50,9 @@ Instead of "what is happening right now," we answer **"what will happen, where, 
 
 | | Link |
 |---|---|
-| **Web App** | `https://aqua-sentinel.vercel.app` *(deploy after setup)* |
-| **API Docs** | `https://aquasentinel-api.onrender.com/docs` *(deploy after setup)* |
-| **API Health** | `https://aquasentinel-api.onrender.com/health` |
+| **Web App** | `https://aquasentinel-gold.vercel.app/` *(deploy after setup)* |
+| **API Docs** | `https://one1th-cassini-hackathon.onrender.com/docs` *(deploy after setup)* |
+| **API Health** | `https://one1th-cassini-hackathon.onrender.com/docs#/default/health_check_health_get` |
 
 ---
 
