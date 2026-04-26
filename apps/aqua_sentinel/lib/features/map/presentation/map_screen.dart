@@ -6,6 +6,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../../alerts/providers/alarms_provider.dart';
+import '../../alerts/models/alarm_model.dart';
 import '../../monitoring/data/monitoring_provider.dart';
 import '../../monitoring/models/environmental_analysis.dart';
 import '../../monitoring/presentation/analysis_panel.dart';
@@ -37,10 +39,12 @@ class MapView extends ConsumerStatefulWidget {
 
 class _MapViewState extends ConsumerState<MapView> {
   final MapController _mapController = MapController();
+  Alarm? _selectedAlarm;
 
   @override
   Widget build(BuildContext context) {
     final selectedBody = ref.watch(selectedWaterBodyProvider);
+    final activeAlarms = ref.watch(activeAlarmsProvider);
 
     ref.listen<LatLng?>(mapNavigationProvider, (_, target) {
       if (target != null) {
@@ -50,6 +54,19 @@ class _MapViewState extends ConsumerState<MapView> {
             ref.read(mapNavigationProvider.notifier).state = null;
           }
         });
+      }
+    });
+
+    ref.listen<String?>(selectedAlarmIdProvider, (_, alarmId) {
+      if (alarmId != null) {
+        final alarms = ref.read(activeAlarmsProvider);
+        final matches = alarms.where((a) => a.id == alarmId).toList();
+        if (matches.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _selectedAlarm = matches.first);
+          });
+        }
+        ref.read(selectedAlarmIdProvider.notifier).state = null;
       }
     });
 
@@ -194,9 +211,8 @@ class _MapViewState extends ConsumerState<MapView> {
                                 ? color
                                 : color.withValues(alpha: 0.55),
                             fontSize: 11,
-                            fontWeight: isSelected
-                                ? FontWeight.w600
-                                : FontWeight.w400,
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.w400,
                           ),
                         ),
                       ),

@@ -1,15 +1,22 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_globe_3d/flutter_globe_3d.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../alerts/data/alarms_provider.dart';
+import '../../alerts/providers/alarms_provider.dart';
 import '../../alerts/models/alarm_model.dart';
+import '../../impact/providers/impact_provider.dart';
+import '../../impact/models/impact_data.dart';
 import '../../map/presentation/map_screen.dart';
+import '../providers/dashboard_globe_focus_provider.dart';
+import '../providers/dashboard_tab_provider.dart';
+import '../../monitoring/data/monitoring_provider.dart';
+import '../../monitoring/models/environmental_analysis.dart';
+import '../../simulator/models/water_issue_scenario.dart';
 import '../../water_quality/data/water_quality_provider.dart';
 import '../../water_quality/presentation/water_quality_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_globe_3d/flutter_globe_3d.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -52,6 +59,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final size = MediaQuery.sizeOf(context);
     final isWide = size.width > 800;
     final activeAlarms = ref.watch(activeAlarmsProvider);
+
+    ref.listen<int?>(dashboardTabProvider, (_, tab) {
+      if (tab != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _selectedNav = tab);
+            ref.read(dashboardTabProvider.notifier).state = null;
+          }
+        });
+      }
+    });
 
     return Scaffold(
       backgroundColor: const Color(0xFF050505),
@@ -124,9 +142,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         _DashboardLeftPanel(
                           onNavigateToMonitoring: (LatLng? coord) {
                             if (coord != null) {
-                              ref
-                                  .read(mapNavigationProvider.notifier)
-                                  .state = coord;
+                              ref.read(mapNavigationProvider.notifier).state =
+                                  coord;
                             }
                             setState(() => _selectedNav = 1);
                           },
@@ -143,8 +160,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     )
                   : _GlobeHero(
                       controller: _earthController,
-                      onNavigateToMap: () =>
-                          setState(() => _selectedNav = 1),
+                      onNavigateToMap: () => setState(() => _selectedNav = 1),
                     ),
             ),
           ],
@@ -391,7 +407,7 @@ class _TopBar extends StatelessWidget {
                 ),
               ),
               Text(
-                'Cosmic Dashboard Refined',
+                'European Water Risk Command Center',
                 style: GoogleFonts.spaceGrotesk(
                     color: Colors.white70, fontSize: 12),
               ),
@@ -496,6 +512,174 @@ class _GlobeHeroState extends ConsumerState<_GlobeHero> {
     super.initState();
     widget.controller.setCameraFocus(45.0, 15.0);
     widget.controller.setZoom(1.8);
+    _addWaterBodyNodes();
+  }
+
+  void _addWaterBodyNodes() {
+    for (final body in waterBodies) {
+      widget.controller.addNode(EarthNode(
+        id: 'wb-${body.id}',
+        latitude: body.latitude,
+        longitude: body.longitude,
+        child: GestureDetector(
+          onTap: () => _goToMonitoring(body.id),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: Tooltip(
+              message: body.name,
+              textStyle:
+                  GoogleFonts.spaceGrotesk(color: Colors.white, fontSize: 11),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0D1B2A),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                    color: const Color(0xFF00D4FF).withValues(alpha: 0.4)),
+              ),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D1B2A),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFF00D4FF), width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF00D4FF).withValues(alpha: 0.4),
+                      blurRadius: 8,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  PhosphorIconsRegular.drop,
+                  color: Color(0xFF00D4FF),
+                  size: 16,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+    }
+  }
+
+  void _syncAlarmNodes(List<Alarm> alarms) {
+    widget.controller.nodes.removeWhere((n) => n.id.startsWith('alarm-'));
+    for (final alarm in alarms) {
+      final color = _severityColor(alarm.severity);
+      widget.controller.nodes.add(EarthNode(
+        id: 'alarm-${alarm.id}',
+        latitude: alarm.location.latitude,
+        longitude: alarm.location.longitude,
+        child: GestureDetector(
+          onTap: () {
+            ref.read(mapNavigationProvider.notifier).state = LatLng(
+              alarm.location.latitude,
+              alarm.location.longitude,
+            );
+            widget.onNavigateToMap();
+          },
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: Tooltip(
+              message: alarm.municipality ??
+                  '${alarm.location.latitude.toStringAsFixed(1)}°, ${alarm.location.longitude.toStringAsFixed(1)}°',
+              textStyle:
+                  GoogleFonts.spaceGrotesk(color: Colors.white, fontSize: 11),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0D1B2A),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: color.withValues(alpha: 0.4)),
+              ),
+              child: Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.6),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+    }
+    widget.controller.setZoom(widget.controller.zoom);
+  }
+
+  void _goToMonitoring(String bodyId) {
+    final body = waterBodies.firstWhere(
+      (b) => b.id == bodyId,
+      orElse: () => waterBodies.first,
+    );
+    final risks = ref.read(waterBodyRiskProvider);
+    final risk = risks.firstWhere(
+      (r) => r.waterBodyId == bodyId,
+      orElse: () => risks.isNotEmpty
+          ? risks.first
+          : const WaterBodyRiskScore(
+              waterBodyId: '',
+              waterBodyName: '',
+              country: '',
+              riskScore: 0,
+              tier: RiskTier.low,
+              populationAtRisk: 0,
+              economicImpactEurM: 0,
+              primaryThreat: '',
+              dataSource: '',
+              lastUpdated: '',
+              sectorImpacts: [],
+            ),
+    );
+    ref.read(mapNavigationProvider.notifier).state =
+        LatLng(body.latitude, body.longitude);
+    ref.read(selectedWaterBodyProvider.notifier).state = body;
+    ref.read(viewModeProvider.notifier).state = ViewMode.simulate;
+    ref.read(selectedIssueTypeProvider.notifier).state =
+        _mapThreatToScenario(risk.primaryThreat);
+    widget.onNavigateToMap();
+  }
+
+  WaterIssueType _mapThreatToScenario(String threat) {
+    final lower = threat.toLowerCase();
+    if (lower.contains('flood') || lower.contains('inundat')) {
+      return WaterIssueType.flooding;
+    }
+    if (lower.contains('drought') || lower.contains('dry')) {
+      return WaterIssueType.drought;
+    }
+    if (lower.contains('temperature') ||
+        lower.contains('heat') ||
+        lower.contains('warm')) {
+      return WaterIssueType.heatStress;
+    }
+    if (lower.contains('snow') ||
+        lower.contains('melt') ||
+        lower.contains('glacier')) {
+      return WaterIssueType.snowMelt;
+    }
+    return WaterIssueType.pollution;
+  }
+
+  Color _severityColor(AlarmSeverity s) {
+    switch (s) {
+      case AlarmSeverity.critical:
+        return const Color(0xFFFF4757);
+      case AlarmSeverity.high:
+        return const Color(0xFFFF9F43);
+      case AlarmSeverity.medium:
+        return const Color(0xFFFECA57);
+      case AlarmSeverity.low:
+        return const Color(0xFF54A0FF);
+    }
   }
 
   void _zoomIn() => widget.controller.setZoom(widget.controller.zoom + 0.25);
@@ -504,6 +688,16 @@ class _GlobeHeroState extends ConsumerState<_GlobeHero> {
   @override
   Widget build(BuildContext context) {
     final activeAlarms = ref.watch(activeAlarmsProvider);
+
+    ref.listen<LatLng?>(dashboardGlobeFocusProvider, (_, focus) {
+      if (focus != null) {
+        widget.controller.setCameraFocus(focus.latitude, focus.longitude);
+        widget.controller.setZoom(2.2);
+        ref.read(dashboardGlobeFocusProvider.notifier).state = null;
+      }
+    });
+
+    _syncAlarmNodes(activeAlarms);
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -543,14 +737,14 @@ class _GlobeHeroState extends ConsumerState<_GlobeHero> {
                       }
                     },
                     child: GestureDetector(
+                      onTap: widget.onNavigateToMap,
                       onScaleStart: (_) => _baseZoom = widget.controller.zoom,
                       onScaleUpdate: (details) =>
                           widget.controller.setZoom(_baseZoom * details.scale),
                       child: SizedBox.expand(
                         child: Earth3D(
                           controller: widget.controller,
-                          texture:
-                              const AssetImage('assets/earth_texture.png'),
+                          texture: const AssetImage('assets/earth_texture.png'),
                           initialScale: 1,
                         ).animate().fadeIn(duration: 900.ms).scale(
                             begin: const Offset(0.8, 0.8),
@@ -579,13 +773,6 @@ class _GlobeHeroState extends ConsumerState<_GlobeHero> {
               ),
             ),
             _RecentAlertsPanel(onNavigateToMap: widget.onNavigateToMap),
-            if (activeAlarms.isNotEmpty)
-              Positioned.fill(
-                child: _AlarmMarkersOverlay(
-                  alarms: activeAlarms,
-                  onNavigateToMap: widget.onNavigateToMap,
-                ),
-              ),
           ],
         ),
       ),
@@ -682,7 +869,7 @@ class _SpectralFeedHeader extends StatelessWidget {
                   .fadeOut(duration: 800.ms),
               const SizedBox(width: 6),
               Text(
-                'REAL-TIME SPECTRAL FEED',
+                'EUROPEAN WATER RISK OVERVIEW',
                 style: GoogleFonts.spaceGrotesk(
                   color: const Color(0xFF00D4FF),
                   fontSize: 10,
@@ -718,11 +905,11 @@ class _GlobeFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _CoordChip(label: 'LAT', value: '48.2° N'),
+        _CoordChip(label: 'WATERSHEDS', value: '10 monitored'),
         const SizedBox(width: 12),
-        _CoordChip(label: 'LON', value: '10.0° E'),
+        _CoordChip(label: 'COVERAGE', value: 'EU + Balkans'),
         const SizedBox(width: 12),
-        _CoordChip(label: 'ALT', value: '821 km'),
+        _CoordChip(label: 'UPDATE', value: 'Every 5 days'),
         const Spacer(),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -739,7 +926,7 @@ class _GlobeFooter extends StatelessWidget {
                   color: Color(0xFFFF4757), size: 12),
               const SizedBox(width: 4),
               Text(
-                'ACTIVE SCAN REGION',
+                'LONG-TERM RISK PREDICTION ACTIVE',
                 style: GoogleFonts.spaceGrotesk(
                   color: const Color(0xFFFF4757),
                   fontSize: 9,
@@ -983,127 +1170,6 @@ class _RecentAlertsPanel extends ConsumerWidget {
   }
 }
 
-class _AlarmMarkersOverlay extends ConsumerWidget {
-  const _AlarmMarkersOverlay({
-    required this.alarms,
-    required this.onNavigateToMap,
-  });
-  final List<Alarm> alarms;
-  final VoidCallback onNavigateToMap;
-
-  Color _severityColor(AlarmSeverity severity) {
-    switch (severity) {
-      case AlarmSeverity.critical:
-        return const Color(0xFFFF4757);
-      case AlarmSeverity.high:
-        return const Color(0xFFFF9F43);
-      case AlarmSeverity.medium:
-        return const Color(0xFFFECA57);
-      case AlarmSeverity.low:
-        return const Color(0xFF54A0FF);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Padding(
-      padding: const EdgeInsets.all(60),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Stack(
-            children: alarms.map((alarm) {
-              final lat = alarm.location.latitude;
-              final lon = alarm.location.longitude;
-
-              final x = ((lon + 180) / 360) * constraints.maxWidth;
-              final y = ((90 - lat) / 180) * constraints.maxHeight;
-
-              final color = _severityColor(alarm.severity);
-              final isCritical = alarm.severity == AlarmSeverity.critical;
-              final isHigh = alarm.severity == AlarmSeverity.high;
-              final pulseMs = isCritical ? 800 : 1200;
-
-              final label =
-                  '${alarm.severity.name.toUpperCase()} — ${alarm.municipality ?? 'Lat ${lat.toStringAsFixed(1)}, Lon ${lon.toStringAsFixed(1)}'}';
-
-              return Positioned(
-                left: x - 14,
-                top: y - 14,
-                child: Tooltip(
-                  message: label,
-                  textStyle: GoogleFonts.spaceGrotesk(
-                      color: Colors.white, fontSize: 11),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0D1B2A),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: color.withValues(alpha: 0.4)),
-                  ),
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: GestureDetector(
-                      onTap: () {
-                        ref.read(mapNavigationProvider.notifier).state =
-                            LatLng(lat, lon);
-                        onNavigateToMap();
-                      },
-                      child: SizedBox(
-                        width: 28,
-                        height: 28,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            if (isCritical || isHigh)
-                              Container(
-                                width: 28,
-                                height: 28,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: color.withValues(alpha: 0.7),
-                                    width: 2,
-                                  ),
-                                ),
-                              )
-                                  .animate(onPlay: (c) => c.repeat())
-                                  .scale(
-                                    begin: const Offset(0.4, 0.4),
-                                    end: const Offset(1.3, 1.3),
-                                    duration: pulseMs.ms,
-                                    curve: Curves.easeOut,
-                                  )
-                                  .fadeOut(duration: pulseMs.ms),
-                            Container(
-                              width: 16,
-                              height: 16,
-                              decoration: BoxDecoration(
-                                color: color,
-                                shape: BoxShape.circle,
-                                border:
-                                    Border.all(color: Colors.white, width: 2),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: color.withValues(alpha: 0.6),
-                                    blurRadius: 10,
-                                    spreadRadius: 2,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          );
-        },
-      ),
-    );
-  }
-}
-
 // ─── Dashboard Left Panel ────────────────────────────────────────────────────
 
 class _DashboardLeftPanel extends ConsumerWidget {
@@ -1117,17 +1183,6 @@ class _DashboardLeftPanel extends ConsumerWidget {
 
   static const _primaryColor = Color(0xFF00D4FF);
 
-  static const _featuredRivers = [
-    ('danube-delta', 'Danube Delta'),
-    ('guadalquivir-river', 'Guadalquivir R.'),
-    ('maas-river', 'Maas River'),
-    ('maritsa-river', 'Maritsa River'),
-    ('inn-river', 'Inn River'),
-    ('po-river', 'Po River'),
-    ('tisza-river', 'Tisza River'),
-    ('vistula-river', 'Vistula River'),
-  ];
-
   Color _severityColor(AlarmSeverity s) {
     switch (s) {
       case AlarmSeverity.critical:
@@ -1138,6 +1193,19 @@ class _DashboardLeftPanel extends ConsumerWidget {
         return const Color(0xFFFECA57);
       case AlarmSeverity.low:
         return const Color(0xFF54A0FF);
+    }
+  }
+
+  Color _tierColor(RiskTier t) {
+    switch (t) {
+      case RiskTier.low:
+        return const Color(0xFF26de81);
+      case RiskTier.moderate:
+        return const Color(0xFFFECA57);
+      case RiskTier.high:
+        return const Color(0xFFFF9F43);
+      case RiskTier.critical:
+        return const Color(0xFFFF4757);
     }
   }
 
@@ -1165,21 +1233,69 @@ class _DashboardLeftPanel extends ConsumerWidget {
     }
   }
 
-  (Color, String) _qualityStatus(String label) {
-    if (label.contains('SAFE —') || label.contains('is SAFE')) {
-      return (const Color(0xFF26de81), 'SAFE');
+  WaterIssueType _mapThreatToScenario(String threat) {
+    final lower = threat.toLowerCase();
+    if (lower.contains('flood') || lower.contains('inundat')) {
+      return WaterIssueType.flooding;
     }
-    if (label.contains('CAUTION')) return (const Color(0xFFFECA57), 'CAUTION');
-    if (label.contains('UNSAFE')) return (const Color(0xFFFF9F43), 'UNSAFE');
-    return (const Color(0xFFFF4757), 'CRITICAL');
+    if (lower.contains('drought') || lower.contains('dry')) {
+      return WaterIssueType.drought;
+    }
+    if (lower.contains('temperature') ||
+        lower.contains('heat') ||
+        lower.contains('warm')) {
+      return WaterIssueType.heatStress;
+    }
+    if (lower.contains('snow') ||
+        lower.contains('melt') ||
+        lower.contains('glacier')) {
+      return WaterIssueType.snowMelt;
+    }
+    return WaterIssueType.pollution;
+  }
+
+  void _goToMonitoring(WidgetRef ref, String bodyId) {
+    final body = waterBodies.firstWhere(
+      (b) => b.id == bodyId,
+      orElse: () => waterBodies.first,
+    );
+    final risks = ref.read(waterBodyRiskProvider);
+    final risk = risks.firstWhere(
+      (r) => r.waterBodyId == bodyId,
+      orElse: () => risks.isNotEmpty
+          ? risks.first
+          : const WaterBodyRiskScore(
+              waterBodyId: '',
+              waterBodyName: '',
+              country: '',
+              riskScore: 0,
+              tier: RiskTier.low,
+              populationAtRisk: 0,
+              economicImpactEurM: 0,
+              primaryThreat: '',
+              dataSource: '',
+              lastUpdated: '',
+              sectorImpacts: [],
+            ),
+    );
+    ref.read(mapNavigationProvider.notifier).state =
+        LatLng(body.latitude, body.longitude);
+    ref.read(selectedWaterBodyProvider.notifier).state = body;
+    ref.read(selectedIssueTypeProvider.notifier).state =
+        _mapThreatToScenario(risk.primaryThreat);
+    ref.read(viewModeProvider.notifier).state = ViewMode.simulate;
+    onNavigateToMonitoring(null);
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final activeAlarms = ref.watch(activeAlarmsProvider);
+    final riskScores = ref.watch(waterBodyRiskProvider);
+    final hotspots = riskScores.where((r) => r.riskScore > 55).toList()
+      ..sort((a, b) => b.riskScore.compareTo(a.riskScore));
 
     return Container(
-      width: 256,
+      width: 300,
       decoration: BoxDecoration(
         color: const Color(0xFF060E1A).withValues(alpha: 0.92),
         border: const Border(left: BorderSide(color: Colors.white10)),
@@ -1197,34 +1313,40 @@ class _DashboardLeftPanel extends ConsumerWidget {
           _buildPanelHeader(),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSectionHeader('ACTIVE ALARMS', activeAlarms.length),
-                  const SizedBox(height: 8),
+                  _buildSectionHeader(
+                      'PRIORITY RISK HOTSPOTS', hotspots.length),
+                  const SizedBox(height: 10),
+                  if (hotspots.isEmpty)
+                    _buildEmptyState('No priority hotspots')
+                  else
+                    ...hotspots.map((h) => _buildHotspotCard(h, ref)),
+                  const SizedBox(height: 6),
+                  _buildActionButton(
+                    'Open long-term simulator',
+                    PhosphorIconsRegular.globe,
+                    () => onNavigateToMonitoring(null),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildSectionHeader('ACTIVE ALERTS', activeAlarms.length),
+                  const SizedBox(height: 10),
                   if (activeAlarms.isEmpty)
                     _buildEmptyState('No active alarms')
                   else
-                    ...activeAlarms.map((a) => _buildAlarmCard(a)),
-                  const SizedBox(height: 4),
-                  _buildActionButton(
-                    'View all on monitoring map',
-                    PhosphorIconsRegular.mapTrifold,
-                    () => onNavigateToMonitoring(null),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildSectionHeader('RIVER HEALTH', null),
-                  const SizedBox(height: 8),
-                  ..._featuredRivers.map(
-                    (r) => _buildRiverRow(r.$1, r.$2, ref),
-                  ),
-                  const SizedBox(height: 4),
-                  _buildActionButton(
-                    'Open water quality report',
-                    PhosphorIconsRegular.drop,
-                    () => onNavigateToQuality(null),
-                  ),
+                    ...activeAlarms.take(3).map((a) => _buildAlarmCard(a)),
+                  if (activeAlarms.length > 3) ...[
+                    const SizedBox(height: 4),
+                    _buildActionButton(
+                      'View all ${activeAlarms.length} alerts',
+                      PhosphorIconsRegular.mapTrifold,
+                      () => onNavigateToMonitoring(null),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  const _RiskTimelineMini(),
                   const SizedBox(height: 12),
                 ],
               ),
@@ -1246,8 +1368,8 @@ class _DashboardLeftPanel extends ConsumerWidget {
           Container(
             width: 6,
             height: 6,
-            decoration:
-                const BoxDecoration(color: Color(0xFF26de81), shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+                color: Color(0xFF26de81), shape: BoxShape.circle),
           )
               .animate(onPlay: (c) => c.repeat())
               .fadeIn()
@@ -1255,7 +1377,7 @@ class _DashboardLeftPanel extends ConsumerWidget {
               .fadeOut(duration: 1000.ms),
           const SizedBox(width: 8),
           Text(
-            'MISSION INTEL',
+            'RISK INTELLIGENCE',
             style: GoogleFonts.spaceGrotesk(
               color: _primaryColor,
               fontSize: 10,
@@ -1311,8 +1433,7 @@ class _DashboardLeftPanel extends ConsumerWidget {
             child: Text(
               '$count',
               style: GoogleFonts.spaceGrotesk(
-                color:
-                    count > 0 ? const Color(0xFFFF4757) : Colors.white38,
+                color: count > 0 ? const Color(0xFFFF4757) : Colors.white38,
                 fontSize: 8,
                 fontWeight: FontWeight.w700,
               ),
@@ -1320,6 +1441,116 @@ class _DashboardLeftPanel extends ConsumerWidget {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildHotspotCard(WaterBodyRiskScore risk, WidgetRef ref) {
+    final color = _tierColor(risk.tier);
+    final body = waterBodies.firstWhere(
+      (b) => b.id == risk.waterBodyId,
+      orElse: () => waterBodies.first,
+    );
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) {
+        ref.read(dashboardGlobeFocusProvider.notifier).state =
+            LatLng(body.latitude, body.longitude);
+      },
+      child: GestureDetector(
+        onTap: () => _goToMonitoring(ref, risk.waterBodyId),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D1B2A),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: 0.25)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      risk.waterBodyName,
+                      style: GoogleFonts.spaceGrotesk(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      risk.tier.displayName,
+                      style: GoogleFonts.spaceGrotesk(
+                        color: color,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                risk.primaryThreat,
+                style: GoogleFonts.inter(
+                  color: Colors.white54,
+                  fontSize: 10,
+                  height: 1.4,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _HotspotMetric(
+                    icon: PhosphorIconsRegular.currencyEur,
+                    label: 'Exposure',
+                    value: '€${risk.economicImpactEurM.toStringAsFixed(1)}M',
+                    color: const Color(0xFFFF4757),
+                  ),
+                  const SizedBox(width: 8),
+                  _HotspotMetric(
+                    icon: PhosphorIconsRegular.users,
+                    label: 'At Risk',
+                    value:
+                        '${(risk.populationAtRisk / 1000).toStringAsFixed(0)}k',
+                    color: const Color(0xFF00D4FF),
+                  ),
+                  const SizedBox(width: 8),
+                  _HotspotMetric(
+                    icon: PhosphorIconsRegular.chartBar,
+                    label: 'Score',
+                    value: '${risk.riskScore}',
+                    color: color,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: risk.riskScore / 100,
+                  backgroundColor: Colors.white10,
+                  color: color,
+                  minHeight: 4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1392,8 +1623,7 @@ class _DashboardLeftPanel extends ConsumerWidget {
               ),
               const SizedBox(width: 4),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(3),
@@ -1414,76 +1644,6 @@ class _DashboardLeftPanel extends ConsumerWidget {
     );
   }
 
-  Widget _buildRiverRow(String id, String name, WidgetRef ref) {
-    final data = ref.watch(waterQualityProvider(id));
-    final (color, label) = _qualityStatus(data.overallStatusLabel);
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: () => onNavigateToQuality(id),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 5),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0D1B2A),
-            borderRadius: BorderRadius.circular(7),
-            border: Border.all(color: color.withValues(alpha: 0.15)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withValues(alpha: 0.4),
-                      blurRadius: 4,
-                      spreadRadius: 1,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  name,
-                  style: GoogleFonts.spaceGrotesk(
-                    color: Colors.white70,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-                child: Text(
-                  label,
-                  style: GoogleFonts.spaceGrotesk(
-                    color: color,
-                    fontSize: 7,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Icon(PhosphorIconsRegular.arrowRight,
-                  color: Colors.white24, size: 10),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildActionButton(String label, IconData icon, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
@@ -1495,8 +1655,7 @@ class _DashboardLeftPanel extends ConsumerWidget {
           decoration: BoxDecoration(
             color: _primaryColor.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(6),
-            border:
-                Border.all(color: _primaryColor.withValues(alpha: 0.15)),
+            border: Border.all(color: _primaryColor.withValues(alpha: 0.15)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1529,6 +1688,164 @@ class _DashboardLeftPanel extends ConsumerWidget {
           message,
           style: GoogleFonts.inter(color: Colors.white38, fontSize: 11),
         ),
+      ),
+    );
+  }
+}
+
+class _HotspotMetric extends StatelessWidget {
+  const _HotspotMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 9),
+                const SizedBox(width: 3),
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    color: Colors.white38,
+                    fontSize: 8,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: GoogleFonts.spaceGrotesk(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Mini Risk Timeline ──────────────────────────────────────────────────────
+
+class _RiskTimelineMini extends StatelessWidget {
+  const _RiskTimelineMini();
+
+  static const _milestones = [
+    ('Today', 'Current baseline', Color(0xFF00D4FF)),
+    ('+10 yr', 'Moderate increase', Color(0xFFFECA57)),
+    ('+20 yr', 'High risk zones expand', Color(0xFFFF9F43)),
+    ('+30 yr', 'Critical thresholds', Color(0xFFFF4757)),
+    ('+40 yr', 'Severe exposure', Color(0xFFFF4757)),
+    ('+50 yr', 'Catastrophic potential', Color(0xFFFF4757)),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1B2A),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'LONG-TERM PROJECTION',
+            style: GoogleFonts.spaceGrotesk(
+              color: Colors.white38,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ..._milestones.asMap().entries.map((e) {
+            final (label, desc, color) = e.value;
+            final isLast = e.key == _milestones.length - 1;
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                    ),
+                    if (!isLast)
+                      Container(
+                        width: 1,
+                        height: 18,
+                        color: Colors.white24,
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: GoogleFonts.spaceGrotesk(
+                          color: color,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        desc,
+                        style: GoogleFonts.inter(
+                          color: Colors.white38,
+                          fontSize: 9,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }),
+          const SizedBox(height: 4),
+          Text(
+            'Based on Copernicus satellite trend analysis + climate models',
+            style: GoogleFonts.inter(
+              color: Colors.white24,
+              fontSize: 8,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1757,24 +2074,17 @@ class _StatsBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final summary = ref.watch(impactSummaryProvider);
     final alarms = ref.watch(activeAlarmsProvider);
-
     final criticalCount =
         alarms.where((a) => a.severity == AlarmSeverity.critical).length;
-    final highCount =
-        alarms.where((a) => a.severity == AlarmSeverity.high).length;
-    final mediumCount =
-        alarms.where((a) => a.severity == AlarmSeverity.medium).length;
-    final lowCount =
-        alarms.where((a) => a.severity == AlarmSeverity.low).length;
 
-    final now = DateTime.now();
-    final lastScanTime = DateTime.now().subtract(const Duration(minutes: 2));
-    final diffMinutes = now.difference(lastScanTime).inMinutes;
-    final lastScanLabel = diffMinutes < 5 ? 'Just now' : '${diffMinutes}m ago';
+    // Pitch-derived framing: Tyrol invests ~€60M/yr to prevent ~€1.5B damage.
+    // Prevention ROI roughly 25:1 for the portfolio.
+    const preventionRoi = '25:1';
 
     return Container(
-      height: 56,
+      height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: const BoxDecoration(
         color: Color(0xFF060E1A),
@@ -1783,37 +2093,40 @@ class _StatsBar extends ConsumerWidget {
       child: Row(
         children: [
           _StatCard(
-            icon: PhosphorIconsRegular.warning,
-            label: 'Active Alerts',
-            value: alarms.isEmpty
-                ? 'None'
-                : '${criticalCount > 0 ? '$criticalCount Critical' : ''}${criticalCount > 0 && (highCount > 0 || mediumCount > 0 || lowCount > 0) ? ' · ' : ''}${highCount > 0 ? '$highCount Warnings' : ''}${highCount > 0 && (mediumCount > 0 || lowCount > 0) ? ' · ' : ''}${mediumCount > 0 ? '$mediumCount Moderate' : ''}${mediumCount > 0 && lowCount > 0 ? ' · ' : ''}${lowCount > 0 ? '$lowCount Low' : ''}',
-            color: criticalCount > 0
-                ? const Color(0xFFFF4757)
-                : highCount > 0
-                    ? const Color(0xFFFF9F43)
-                    : const Color(0xFF00D4FF),
-            iconColor: criticalCount > 0
-                ? const Color(0xFFFF4757)
-                : highCount > 0
-                    ? const Color(0xFFFF9F43)
-                    : const Color(0xFF00D4FF),
-          ),
-          const SizedBox(width: 24),
-          const _StatCard(
-            icon: PhosphorIconsRegular.mapPin,
-            label: 'Monitored Regions',
-            value: '5',
-            color: Color(0xFF00D4FF),
-            iconColor: Color(0xFF00D4FF),
+            icon: PhosphorIconsRegular.currencyEur,
+            label: 'Total Economic Exposure',
+            value: '€${summary.totalEconomicImpactEurM.toStringAsFixed(1)}M',
+            color: const Color(0xFFFF4757),
+            iconColor: const Color(0xFFFF4757),
           ),
           const SizedBox(width: 24),
           _StatCard(
-            icon: PhosphorIconsRegular.airplaneTilt,
-            label: 'Last Copernicus Scan',
-            value: lastScanLabel,
+            icon: PhosphorIconsRegular.users,
+            label: 'Population at Risk',
+            value: _formatPopulation(summary.totalPopulationAtRisk),
             color: const Color(0xFF00D4FF),
             iconColor: const Color(0xFF00D4FF),
+          ),
+          const SizedBox(width: 24),
+          _StatCard(
+            icon: PhosphorIconsRegular.warningOctagon,
+            label: 'Critical Hotspots',
+            value:
+                '${summary.criticalCount} critical · ${summary.highCount} high',
+            color: criticalCount > 0
+                ? const Color(0xFFFF4757)
+                : const Color(0xFFFF9F43),
+            iconColor: criticalCount > 0
+                ? const Color(0xFFFF4757)
+                : const Color(0xFFFF9F43),
+          ),
+          const SizedBox(width: 24),
+          const _StatCard(
+            icon: PhosphorIconsRegular.trendUp,
+            label: 'Prevention ROI',
+            value: preventionRoi,
+            color: Color(0xFF26de81),
+            iconColor: Color(0xFF26de81),
           ),
           const Spacer(),
           Container(
@@ -1827,11 +2140,11 @@ class _StatsBar extends ConsumerWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(PhosphorIconsRegular.gitBranch,
+                const Icon(PhosphorIconsRegular.broadcast,
                     color: Color(0xFF00D4FF), size: 12),
                 const SizedBox(width: 6),
                 Text(
-                  'SENTINEL-2 L2A',
+                  'COPERNICUS SENTINEL-2 / SENTINEL-1',
                   style: GoogleFonts.spaceGrotesk(
                     color: const Color(0xFF00D4FF),
                     fontSize: 9,
@@ -1845,6 +2158,12 @@ class _StatsBar extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  String _formatPopulation(int n) {
+    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
+    if (n >= 1000) return '${(n / 1000).toStringAsFixed(0)}k';
+    return '$n';
   }
 }
 
