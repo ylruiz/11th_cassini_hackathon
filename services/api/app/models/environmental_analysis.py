@@ -113,6 +113,15 @@ class RiskAction(BaseModel):
     estimated_cost: str
 
 
+class RiskEvidenceMetric(BaseModel):
+    label: str
+    value: float
+    unit: str
+    fraction: float
+    interpretation: str
+    source: str
+
+
 class RiskTimeline(BaseModel):
     water_body_id: str
     water_body_name: str
@@ -123,3 +132,16 @@ class RiskTimeline(BaseModel):
     projections: list[RiskProjection]
     impacts: list[RiskImpact]
     actions: list[RiskAction]
+    evidence: list[RiskEvidenceMetric]
+
+
+class AoiBounds(BaseModel):
+    west: float
+    south: float
+    east: float
+    north: float
+
+
+class AoiRiskTimelineRequest(BaseModel):
+    label: str = "Custom Alpine AOI"
+    bbox: AoiBounds

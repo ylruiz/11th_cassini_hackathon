@@ -9,10 +9,13 @@ from .environmental_analysis import (
     AreaAnalysis,
     RiskAction,
     RiskDriver,
+    RiskEvidenceMetric,
     RiskImpact,
     RiskProjection,
     RiskSignal,
     RiskTimeline,
+    AoiBounds,
+    AoiRiskTimelineRequest,
 )
 
 __all__ = [
@@ -26,8 +29,11 @@ __all__ = [
     "AreaAnalysis",
     "RiskAction",
     "RiskDriver",
+    "RiskEvidenceMetric",
     "RiskImpact",
     "RiskProjection",
     "RiskSignal",
     "RiskTimeline",
+    "AoiBounds",
+    "AoiRiskTimelineRequest",
 ]

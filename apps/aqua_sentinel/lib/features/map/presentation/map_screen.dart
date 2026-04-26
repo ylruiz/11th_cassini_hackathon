@@ -37,10 +37,13 @@ class MapView extends ConsumerStatefulWidget {
 
 class _MapViewState extends ConsumerState<MapView> {
   final MapController _mapController = MapController();
+  bool _isAoiMode = false;
+  LatLng? _aoiStart;
 
   @override
   Widget build(BuildContext context) {
     final selectedBody = ref.watch(selectedWaterBodyProvider);
+    final selectedAoi = ref.watch(selectedAoiProvider);
 
     ref.listen<LatLng?>(mapNavigationProvider, (_, target) {
       if (target != null) {
@@ -73,6 +76,7 @@ class _MapViewState extends ConsumerState<MapView> {
                   children: [
                     if (selectedBody != null)
                       _buildScenarioSelector(selectedBody, context),
+                    _buildAoiToolbar(context),
                     Expanded(
                       child: FlutterMap(
                         mapController: _mapController,
@@ -91,6 +95,25 @@ class _MapViewState extends ConsumerState<MapView> {
                             markers:
                                 waterBodies.map(_buildWaterBodyMarker).toList(),
                           ),
+                          if (selectedAoi != null)
+                            PolygonLayer(
+                              polygons: [_buildAoiPolygon(selectedAoi)],
+                            ),
+                          if (_aoiStart != null)
+                            MarkerLayer(
+                              markers: [
+                                Marker(
+                                  point: _aoiStart!,
+                                  width: 34,
+                                  height: 34,
+                                  child: const Icon(
+                                    PhosphorIconsRegular.crosshair,
+                                    color: Color(0xFF00D4FF),
+                                    size: 28,
+                                  ),
+                                ),
+                              ],
+                            ),
                         ],
                       ),
                     ),
@@ -101,7 +124,7 @@ class _MapViewState extends ConsumerState<MapView> {
             ),
           ),
         ),
-        if (selectedBody != null)
+        if (selectedBody != null || selectedAoi != null)
           const SizedBox(
             width: 400,
             child: AnalysisPanel(),
@@ -117,6 +140,63 @@ class _MapViewState extends ConsumerState<MapView> {
     (WaterIssueType.heatStress, 'Heat Stress', Color(0xFFFF6B35)),
     (WaterIssueType.snowMelt, 'Snow Melt', Color(0xFF74B9FF)),
   ];
+
+  Widget _buildAoiToolbar(BuildContext context) {
+    final selectedAoi = ref.watch(selectedAoiProvider);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF081525),
+        border: Border(
+          bottom: BorderSide(
+            color: const Color(0xFF00D4FF).withValues(alpha: 0.12),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            PhosphorIconsRegular.selection,
+            color: Color(0xFF00D4FF),
+            size: 14,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              selectedAoi == null
+                  ? (_isAoiMode
+                      ? 'Click two map corners to screen an Alpine AOI'
+                      : 'Screen a custom Alpine region with Copernicus')
+                  : 'AOI selected: ${selectedAoi.label}',
+              style: GoogleFonts.inter(color: Colors.white54, fontSize: 11),
+            ),
+          ),
+          const SizedBox(width: 8),
+          _ToolbarButton(
+            label: 'OETZTAL PRESET',
+            icon: PhosphorIconsRegular.mountains,
+            isActive: selectedAoi?.label == 'Oetztal Alps AOI',
+            onTap: _selectOetztalPreset,
+          ),
+          const SizedBox(width: 8),
+          _ToolbarButton(
+            label: _isAoiMode ? 'CANCEL DRAW' : 'DRAW AOI',
+            icon: _isAoiMode
+                ? PhosphorIconsRegular.x
+                : PhosphorIconsRegular.rectangle,
+            isActive: _isAoiMode,
+            onTap: () {
+              setState(() {
+                _isAoiMode = !_isAoiMode;
+                _aoiStart = null;
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildScenarioSelector(WaterBodyInfo body, BuildContext context) {
     final selectedIssue = ref.watch(selectedIssueTypeProvider);
@@ -327,6 +407,11 @@ class _MapViewState extends ConsumerState<MapView> {
       child: GestureDetector(
         onTap: () {
           ref.read(selectedWaterBodyProvider.notifier).state = body;
+          ref.read(selectedAoiProvider.notifier).state = null;
+          setState(() {
+            _isAoiMode = false;
+            _aoiStart = null;
+          });
           _mapController.move(LatLng(body.latitude, body.longitude), 6);
         },
         child: Container(
@@ -354,16 +439,97 @@ class _MapViewState extends ConsumerState<MapView> {
   }
 
   void _handleMapTap(LatLng point) {
+    if (_isAoiMode) {
+      _handleAoiTap(point);
+      return;
+    }
+
     for (final body in waterBodies) {
       if (_calculateDistance(
               point.latitude, point.longitude, body.latitude, body.longitude) <
           100) {
         ref.read(selectedWaterBodyProvider.notifier).state = body;
+        ref.read(selectedAoiProvider.notifier).state = null;
         return;
       }
     }
     ref.read(selectedWaterBodyProvider.notifier).state = null;
+    ref.read(selectedAoiProvider.notifier).state = null;
   }
+
+  void _handleAoiTap(LatLng point) {
+    if (_aoiStart == null) {
+      setState(() {
+        _aoiStart = point;
+      });
+      return;
+    }
+
+    final west = _min(_aoiStart!.longitude, point.longitude);
+    final east = _max(_aoiStart!.longitude, point.longitude);
+    final south = _min(_aoiStart!.latitude, point.latitude);
+    final north = _max(_aoiStart!.latitude, point.latitude);
+
+    if ((east - west) < 0.02 || (north - south) < 0.02) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Draw a larger region for AOI screening.',
+            style: GoogleFonts.inter(color: Colors.white),
+          ),
+          backgroundColor: const Color(0xFF0D1B2A),
+        ),
+      );
+      return;
+    }
+
+    ref.read(selectedWaterBodyProvider.notifier).state = null;
+    ref.read(selectedAoiProvider.notifier).state = AoiSelection(
+          label: 'Custom Alpine AOI',
+          bbox: AoiBounds(west: west, south: south, east: east, north: north),
+        );
+    setState(() {
+      _isAoiMode = false;
+      _aoiStart = null;
+    });
+  }
+
+  void _selectOetztalPreset() {
+    ref.read(selectedWaterBodyProvider.notifier).state = null;
+    ref.read(selectedAoiProvider.notifier).state = const AoiSelection(
+          label: 'Oetztal Alps AOI',
+          bbox: AoiBounds(
+            west: 10.75,
+            south: 46.75,
+            east: 11.35,
+            north: 47.35,
+          ),
+        );
+    setState(() {
+      _isAoiMode = false;
+      _aoiStart = null;
+    });
+    _mapController.move(const LatLng(47.05, 11.05), 8);
+  }
+
+  Polygon _buildAoiPolygon(AoiSelection selection) {
+    final bbox = selection.bbox;
+    return Polygon(
+      points: [
+        LatLng(bbox.south, bbox.west),
+        LatLng(bbox.south, bbox.east),
+        LatLng(bbox.north, bbox.east),
+        LatLng(bbox.north, bbox.west),
+      ],
+      color: const Color(0xFF00D4FF).withValues(alpha: 0.12),
+      borderColor: const Color(0xFF00D4FF),
+      borderStrokeWidth: 2,
+    );
+  }
+
+  double _min(double a, double b) => a < b ? a : b;
+
+  double _max(double a, double b) => a > b ? a : b;
 
   double _calculateDistance(
       double lat1, double lon1, double lat2, double lon2) {
@@ -397,5 +563,55 @@ class _MapViewState extends ConsumerState<MapView> {
       g = (g + x / g) / 2;
     }
     return g;
+  }
+}
+
+class _ToolbarButton extends StatelessWidget {
+  final String label;
+  final PhosphorIconData icon;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _ToolbarButton({
+    required this.label,
+    required this.icon,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isActive ? const Color(0xFF00D4FF) : Colors.white38;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: isActive ? 0.16 : 0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withValues(alpha: 0.35)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 13),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: GoogleFonts.spaceGrotesk(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

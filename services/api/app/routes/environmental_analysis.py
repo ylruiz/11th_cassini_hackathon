@@ -1,7 +1,11 @@
 import logging
 
 from fastapi import APIRouter, Query, HTTPException
-from app.models.environmental_analysis import AreaAnalysis, RiskTimeline
+from app.models.environmental_analysis import (
+    AoiRiskTimelineRequest,
+    AreaAnalysis,
+    RiskTimeline,
+)
 from app.services.copernicus_flood_data import copernicus_flood_service
 from app.services.long_term_risk import long_term_risk_service
 from app.services.mock_satellite_data import mock_satellite_service
@@ -79,3 +83,14 @@ async def get_risk_timeline(water_body_id: str) -> RiskTimeline:
         )
 
     return timeline
+
+
+@router.post("/risk-timeline/aoi", response_model=RiskTimeline)
+async def get_aoi_risk_timeline(request: AoiRiskTimelineRequest) -> RiskTimeline:
+    try:
+        return await long_term_risk_service.get_aoi_risk_timeline(
+            label=request.label,
+            bbox=request.bbox,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

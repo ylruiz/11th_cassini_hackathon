@@ -32,41 +32,69 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
   @override
   Widget build(BuildContext context) {
     final selectedBody = ref.watch(selectedWaterBodyProvider);
+    final selectedAoi = ref.watch(selectedAoiProvider);
     final cs = Theme.of(context).colorScheme;
 
-    if (selectedBody == null) {
+    if (selectedBody == null && selectedAoi == null) {
       return _buildEmptyState(cs);
     }
-
-    final analysisAsync =
-        ref.watch(environmentalAnalysisProvider(selectedBody.id));
-    final riskTimelineAsync = ref.watch(riskTimelineProvider(selectedBody.id));
 
     return Container(
       color: const Color(0xFF060E1A),
       child: Column(
         children: [
-          _buildHeader(selectedBody, cs),
+          _buildHeader(selectedBody, selectedAoi, cs),
           _buildTabBar(cs),
           Expanded(
-            child: analysisAsync.when(
-              data: (analysis) => riskTimelineAsync.when(
-                data: (riskTimeline) => _buildTabView(analysis, riskTimeline),
-                loading: () => _buildTabView(analysis, null),
-                error: (_, __) => _buildTabView(analysis, null),
-              ),
-              loading: () => const Center(
-                child: CircularProgressIndicator(color: Color(0xFF00D4FF)),
-              ),
-              error: (e, _) => Center(
-                child: Text(
-                  'Error loading data',
-                  style: GoogleFonts.inter(color: Colors.red),
-                ),
-              ),
-            ),
+            child: selectedBody != null
+                ? _buildWaterBodyContent(selectedBody)
+                : _buildAoiContent(selectedAoi!),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildWaterBodyContent(WaterBodyInfo selectedBody) {
+    final analysisAsync =
+        ref.watch(environmentalAnalysisProvider(selectedBody.id));
+    final riskTimelineAsync = ref.watch(riskTimelineProvider(selectedBody.id));
+
+    return analysisAsync.when(
+      data: (analysis) => riskTimelineAsync.when(
+        data: (riskTimeline) => _buildTabView(analysis, riskTimeline),
+        loading: () => _buildTabView(analysis, null),
+        error: (_, __) => _buildTabView(analysis, null),
+      ),
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF00D4FF)),
+      ),
+      error: (e, _) => Center(
+        child: Text(
+          'Error loading data',
+          style: GoogleFonts.inter(color: Colors.red),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAoiContent(AoiSelection selectedAoi) {
+    final riskTimelineAsync = ref.watch(aoiRiskTimelineProvider(selectedAoi));
+
+    return riskTimelineAsync.when(
+      data: (riskTimeline) => _buildTabView(AreaAnalysis.empty(), riskTimeline),
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF00D4FF)),
+      ),
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Error loading AOI risk data',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(color: Colors.red),
+          ),
+        ),
       ),
     );
   }
@@ -119,7 +147,11 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
     );
   }
 
-  Widget _buildHeader(WaterBodyInfo body, ColorScheme cs) {
+  Widget _buildHeader(WaterBodyInfo? body, AoiSelection? aoi, ColorScheme cs) {
+    final title = body?.name ?? aoi!.label;
+    final latitude = body?.latitude ?? aoi!.latitude;
+    final longitude = body?.longitude ?? aoi!.longitude;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
@@ -148,7 +180,7 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      body.name,
+                      title,
                       style: GoogleFonts.spaceGrotesk(
                         color: Colors.white,
                         fontSize: 16,
@@ -157,7 +189,7 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${body.latitude.toStringAsFixed(2)}°, ${body.longitude.toStringAsFixed(2)}°',
+                      '${latitude.toStringAsFixed(2)}°, ${longitude.toStringAsFixed(2)}°',
                       style: GoogleFonts.inter(
                         color: Colors.white38,
                         fontSize: 11,
@@ -171,6 +203,7 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
                     color: Colors.white38, size: 18),
                 onPressed: () {
                   ref.read(selectedWaterBodyProvider.notifier).state = null;
+                  ref.read(selectedAoiProvider.notifier).state = null;
                 },
               ),
             ],
@@ -217,18 +250,24 @@ class _ProblemsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (analysis.problems.isEmpty) {
+    if (riskTimeline != null) {
+      return ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          _CurrentSignalCard(timeline: riskTimeline!),
+        ],
+      );
+    }
+
+    if (analysis.problems.isEmpty && riskTimeline == null) {
       return _buildEmpty('No problems detected');
     }
 
     return ListView.builder(
       padding: const EdgeInsets.all(12),
-      itemCount: analysis.problems.length + (riskTimeline == null ? 0 : 1),
+      itemCount: analysis.problems.length,
       itemBuilder: (context, index) {
-        if (riskTimeline != null && index == 0) {
-          return _CurrentSignalCard(signal: riskTimeline!.currentSignal);
-        }
-        final problem = analysis.problems[index - (riskTimeline == null ? 0 : 1)];
+        final problem = analysis.problems[index];
         return _ProblemCard(problem: problem);
       },
     );
@@ -361,7 +400,10 @@ class _CausesTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (riskTimeline != null) {
-      return _RiskDriversList(drivers: riskTimeline!.drivers);
+      return _RiskDriversList(
+        drivers: riskTimeline!.drivers,
+        evidence: riskTimeline!.evidence,
+      );
     }
 
     if (analysis.causes.isEmpty) {
@@ -885,12 +927,13 @@ class _ImpactMetric extends StatelessWidget {
 }
 
 class _CurrentSignalCard extends StatelessWidget {
-  final RiskSignal signal;
+  final RiskTimeline timeline;
 
-  const _CurrentSignalCard({required this.signal});
+  const _CurrentSignalCard({required this.timeline});
 
   @override
   Widget build(BuildContext context) {
+    final signal = timeline.currentSignal;
     final color = _severityColor(signal.severity);
 
     return Container(
@@ -930,6 +973,12 @@ class _CurrentSignalCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
+          _MethodNote(
+            text:
+                'Screening result, not a certified emergency alert. Values combine live Copernicus evidence with transparent thresholds.',
+            color: color,
+          ),
+          const SizedBox(height: 10),
           Text(
             signal.summary,
             style: GoogleFonts.inter(
@@ -938,6 +987,22 @@ class _CurrentSignalCard extends StatelessWidget {
               height: 1.5,
             ),
           ),
+          if (timeline.evidence.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text(
+              'Evidence metrics',
+              style: GoogleFonts.spaceGrotesk(
+                color: Colors.white54,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...timeline.evidence.map((metric) {
+              return _EvidenceMetricBar(metric: metric);
+            }),
+          ],
           const SizedBox(height: 10),
           Text(
             signal.source,
@@ -951,17 +1016,21 @@ class _CurrentSignalCard extends StatelessWidget {
 
 class _RiskDriversList extends StatelessWidget {
   final List<RiskDriver> drivers;
+  final List<RiskEvidenceMetric> evidence;
 
-  const _RiskDriversList({required this.drivers});
+  const _RiskDriversList({required this.drivers, this.evidence = const []});
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
+    return ListView(
       padding: const EdgeInsets.all(12),
-      itemCount: drivers.length,
-      itemBuilder: (context, index) {
-        return _RiskDriverCard(driver: drivers[index]);
-      },
+      children: [
+        if (evidence.isNotEmpty) ...[
+          _EvidenceSummaryCard(evidence: evidence),
+          const SizedBox(height: 12),
+        ],
+        ...drivers.map((driver) => _RiskDriverCard(driver: driver)),
+      ],
     );
   }
 }
@@ -1039,12 +1108,18 @@ class _RiskActionsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
+    return ListView(
       padding: const EdgeInsets.all(12),
-      itemCount: actions.length,
-      itemBuilder: (context, index) {
-        return _RiskActionCard(action: actions[index]);
-      },
+      children: [
+        const _TabIntroCard(
+          title: 'Recommended next actions',
+          body:
+              'Actions separate observed evidence, calibration, and missing layers. The first step is ground-truthing; the model-improvement step is EFAS/Lisflood and exposure integration.',
+          color: Colors.greenAccent,
+        ),
+        const SizedBox(height: 12),
+        ...actions.map((action) => _RiskActionCard(action: action)),
+      ],
     );
   }
 }
@@ -1106,6 +1181,146 @@ class _RiskActionCard extends StatelessWidget {
   }
 }
 
+class _MethodNote extends StatelessWidget {
+  final String text;
+  final Color color;
+
+  const _MethodNote({required this.text, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Text(
+        text,
+        style: GoogleFonts.inter(
+          color: Colors.white60,
+          fontSize: 11,
+          height: 1.4,
+        ),
+      ),
+    );
+  }
+}
+
+class _EvidenceSummaryCard extends StatelessWidget {
+  final List<RiskEvidenceMetric> evidence;
+
+  const _EvidenceSummaryCard({required this.evidence});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF081525),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF00D4FF).withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'DATA USED IN THIS ASSESSMENT',
+            style: GoogleFonts.spaceGrotesk(
+              color: const Color(0xFF00D4FF),
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...evidence.map((metric) => _EvidenceMetricBar(metric: metric)),
+        ],
+      ),
+    );
+  }
+}
+
+class _EvidenceMetricBar extends StatelessWidget {
+  final RiskEvidenceMetric metric;
+
+  const _EvidenceMetricBar({required this.metric});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _metricColor(metric);
+    final fraction = metric.fraction.clamp(0.0, 1.0);
+    final valueText = metric.unit.isEmpty
+        ? metric.value.toStringAsFixed(2)
+        : '${metric.value.toStringAsFixed(1)}${metric.unit}';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  metric.label,
+                  style: GoogleFonts.inter(
+                    color: Colors.white70,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Text(
+                valueText,
+                style: GoogleFonts.spaceGrotesk(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: fraction,
+              minHeight: 6,
+              backgroundColor: Colors.white.withValues(alpha: 0.08),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            metric.interpretation,
+            style: GoogleFonts.inter(
+              color: Colors.white38,
+              fontSize: 9,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _metricColor(RiskEvidenceMetric metric) {
+    final label = metric.label.toLowerCase();
+    if (label.contains('coverage') || label.contains('ndvi')) {
+      return Colors.greenAccent;
+    }
+    if (label.contains('snow')) {
+      return const Color(0xFF74B9FF);
+    }
+    if (label.contains('vegetation')) {
+      return Colors.orangeAccent;
+    }
+    return const Color(0xFF00D4FF);
+  }
+}
+
 class _RiskImpactsList extends StatelessWidget {
   final List<RiskImpact> impacts;
 
@@ -1113,12 +1328,18 @@ class _RiskImpactsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
+    return ListView(
       padding: const EdgeInsets.all(12),
-      itemCount: impacts.length,
-      itemBuilder: (context, index) {
-        return _RiskImpactCard(impact: impacts[index]);
-      },
+      children: [
+        const _TabIntroCard(
+          title: 'Impact layer status',
+          body:
+              'This tab shows which datasets are still needed to translate hazard screening into impacts. It avoids pretending to know losses without exposure layers.',
+          color: Colors.orangeAccent,
+        ),
+        const SizedBox(height: 12),
+        ...impacts.map((impact) => _RiskImpactCard(impact: impact)),
+      ],
     );
   }
 }
@@ -1221,6 +1442,8 @@ class _SimulateTab extends StatelessWidget {
       children: [
         _TimelineConfidenceCard(confidence: timeline.confidence),
         const SizedBox(height: 12),
+        _ProjectionOverviewCard(projections: timeline.projections),
+        const SizedBox(height: 12),
         ...timeline.projections.map((projection) {
           return _RiskProjectionCard(projection: projection);
         }),
@@ -1250,6 +1473,139 @@ class _TimelineConfidenceCard extends StatelessWidget {
           fontSize: 12,
           height: 1.5,
         ),
+      ),
+    );
+  }
+}
+
+class _TabIntroCard extends StatelessWidget {
+  final String title;
+  final String body;
+  final Color color;
+
+  const _TabIntroCard({
+    required this.title,
+    required this.body,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF081525),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: GoogleFonts.spaceGrotesk(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            body,
+            style: GoogleFonts.inter(
+              color: Colors.white60,
+              fontSize: 11,
+              height: 1.45,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProjectionOverviewCard extends StatelessWidget {
+  final List<RiskProjection> projections;
+
+  const _ProjectionOverviewCard({required this.projections});
+
+  @override
+  Widget build(BuildContext context) {
+    final maxDischarge = projections
+        .map((projection) => projection.dischargeChangePercent)
+        .fold<double>(1, (max, value) => value > max ? value : max);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF081525),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF00D4FF).withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'SCENARIO CURVE',
+            style: GoogleFonts.spaceGrotesk(
+              color: const Color(0xFF00D4FF),
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...projections.map((projection) {
+            final value = projection.dischargeChangePercent / maxDischarge;
+            final color = _severityColor(projection.floodRisk);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 58,
+                    child: Text(
+                      projection.label,
+                      style: GoogleFonts.inter(
+                        color: Colors.white54,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                        value: value.clamp(0.0, 1.0),
+                        minHeight: 8,
+                        backgroundColor: Colors.white.withValues(alpha: 0.08),
+                        valueColor: AlwaysStoppedAnimation<Color>(color),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 44,
+                    child: Text(
+                      '+${projection.dischargeChangePercent.toStringAsFixed(0)}%',
+                      textAlign: TextAlign.right,
+                      style: GoogleFonts.spaceGrotesk(
+                        color: color,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          Text(
+            'Bars show a scenario pressure index scaled from current multi-sensor evidence; they are not calibrated discharge forecasts yet.',
+            style: GoogleFonts.inter(color: Colors.white38, fontSize: 9),
+          ),
+        ],
       ),
     );
   }
@@ -1309,7 +1665,7 @@ class _RiskProjectionCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _ProjectionMetric(
-                  label: 'Peak discharge',
+                  label: 'Runoff pressure',
                   value: '+${projection.dischargeChangePercent.toStringAsFixed(0)}%',
                   color: const Color(0xFF00D4FF),
                 ),
@@ -1317,7 +1673,7 @@ class _RiskProjectionCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _ProjectionMetric(
-                  label: 'Flood-prone area',
+                  label: 'Inundation pressure',
                   value:
                       '+${projection.floodProneAreaChangePercent.toStringAsFixed(0)}%',
                   color: Colors.orangeAccent,

@@ -57,6 +57,31 @@ class CopernicusFloodService:
             longitude=longitude,
             radius_km=radius_km,
         )
+        analysis = await self.get_analysis_for_bbox(
+            bbox=bbox,
+            label="Inn River",
+            water_body_id="inn-river",
+            latitude=latitude,
+            longitude=longitude,
+            radius_km=float(radius_km),
+        )
+        self._analysis_cache = analysis
+        self._analysis_cached_at = datetime.now(UTC)
+        return analysis
+
+    async def get_analysis_for_bbox(
+        self,
+        *,
+        bbox: list[float],
+        label: str,
+        water_body_id: str,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        radius_km: float | None = None,
+    ) -> AreaAnalysis:
+        center_lat = latitude if latitude is not None else (bbox[1] + bbox[3]) / 2
+        center_lon = longitude if longitude is not None else (bbox[0] + bbox[2]) / 2
+        radius = radius_km if radius_km is not None else self._bbox_radius_km(bbox)
         to_date = datetime.now(UTC)
         from_date = to_date - timedelta(days=30)
 
@@ -73,27 +98,28 @@ class CopernicusFloodService:
         detected_at = (latest["to"] if latest else to_date).isoformat().replace("+00:00", "Z")
         trend = self._trend_description(intervals)
 
-        problem_id = "copernicus-inn-flood-001"
+        problem_id = f"copernicus-{water_body_id}-flood-001"
+        aoi_label = label if label.lower().endswith("aoi") else f"{label} AOI"
         description = (
-            f"Sentinel-1 SAR flood screening over a {radius_km} km Inn River AOI estimates "
+            f"Sentinel-1 SAR flood screening over a {radius:.0f} km {aoi_label} estimates "
             f"{flooded_area_km2:.1f} km² of water-like backscatter "
             f"({water_fraction * 100:.1f}% of the sampled area). {trend}"
         )
 
         analysis = AreaAnalysis(
-            water_body_id="inn-river",
-            water_body_name="Inn River",
-            latitude=latitude,
-            longitude=longitude,
+            water_body_id=water_body_id,
+            water_body_name=label,
+            latitude=center_lat,
+            longitude=center_lon,
             problems=[
                 EnvironmentalProblem(
                     id=problem_id,
                     type=ProblemType.flood,
                     severity=severity,
                     location=ProblemLocation(
-                        latitude=latitude,
-                        longitude=longitude,
-                        radius_km=float(radius_km),
+                        latitude=center_lat,
+                        longitude=center_lon,
+                        radius_km=radius,
                     ),
                     detected_at=detected_at,
                     source="Copernicus Sentinel-1 GRD",
@@ -151,8 +177,6 @@ class CopernicusFloodService:
                 )
             ],
         )
-        self._analysis_cache = analysis
-        self._analysis_cached_at = datetime.now(UTC)
         return analysis
 
     def _get_cached_analysis(self) -> AreaAnalysis | None:
@@ -238,6 +262,119 @@ function evaluatePixel(sample) {
 
         return self._parse_statistics_intervals(response.json())
 
+    async def get_sentinel2_evidence_for_bbox(
+        self,
+        *,
+        bbox: list[float],
+    ) -> dict[str, float | str]:
+        to_date = datetime.now(UTC)
+        from_date = to_date - timedelta(days=30)
+        intervals = await self._fetch_sentinel2_indicator_series(
+            bbox=bbox,
+            from_date=from_date,
+            to_date=to_date,
+        )
+        latest = intervals[-1] if intervals else None
+        if latest is None:
+            return {
+                "ndwi_water_fraction": 0.0,
+                "low_vegetation_fraction": 0.0,
+                "snow_fraction": 0.0,
+                "mean_ndvi": 0.0,
+                "valid_pixel_fraction": 0.0,
+                "source": "Copernicus Sentinel-2 L2A",
+            }
+
+        latest["source"] = "Copernicus Sentinel-2 L2A"
+        return latest
+
+    async def _fetch_sentinel2_indicator_series(
+        self,
+        *,
+        bbox: list[float],
+        from_date: datetime,
+        to_date: datetime,
+    ) -> list[dict[str, float]]:
+        token = await self._get_access_token()
+        evalscript = """
+//VERSION=3
+function setup() {
+  return {
+    input: ["B03", "B04", "B08", "B11", "SCL", "dataMask"],
+    output: [
+      { id: "default", bands: 4, sampleType: "FLOAT32" },
+      { id: "dataMask", bands: 1 }
+    ]
+  };
+}
+
+function isCloudOrInvalid(scl) {
+  return scl == 0 || scl == 1 || scl == 3 || scl == 8 || scl == 9 || scl == 10;
+}
+
+function safeIndex(a, b) {
+  var denom = a + b;
+  return denom == 0 ? 0 : (a - b) / denom;
+}
+
+function evaluatePixel(sample) {
+  var valid = sample.dataMask == 1 && !isCloudOrInvalid(sample.SCL);
+  var ndwi = safeIndex(sample.B03, sample.B08);
+  var ndvi = safeIndex(sample.B08, sample.B04);
+  var ndsi = safeIndex(sample.B03, sample.B11);
+
+  var water = valid && ndwi > 0.2 && ndvi < 0.3 ? 1 : 0;
+  var lowVegetation = valid && ndvi < 0.35 ? 1 : 0;
+  var snow = valid && ndsi > 0.4 ? 1 : 0;
+
+  return {
+    default: [water, lowVegetation, snow, valid ? ndvi : 0],
+    dataMask: [valid ? 1 : 0]
+  };
+}
+"""
+        payload = {
+            "input": {
+                "bounds": {
+                    "bbox": bbox,
+                    "properties": {"crs": "http://www.opengis.net/def/crs/EPSG/0/4326"},
+                },
+                "data": [
+                    {
+                        "type": "sentinel-2-l2a",
+                        "dataFilter": {
+                            "timeRange": {
+                                "from": from_date.isoformat().replace("+00:00", "Z"),
+                                "to": to_date.isoformat().replace("+00:00", "Z"),
+                            },
+                            "maxCloudCoverage": 70,
+                            "mosaickingOrder": "leastCC",
+                        },
+                    }
+                ],
+            },
+            "aggregation": {
+                "timeRange": {
+                    "from": from_date.isoformat().replace("+00:00", "Z"),
+                    "to": to_date.isoformat().replace("+00:00", "Z"),
+                },
+                "aggregationInterval": {"of": "P30D"},
+                "evalscript": evalscript,
+                "resx": 0.001,
+                "resy": 0.001,
+            },
+        }
+
+        async with httpx.AsyncClient(timeout=45.0) as client:
+            response = await client.post(
+                SENTINEL_HUB_STATISTICS_URL,
+                json=payload,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            response.raise_for_status()
+
+        return self._parse_sentinel2_intervals(response.json())
+
     async def _get_access_token(self) -> str:
         if (
             self._access_token
@@ -298,6 +435,32 @@ function evaluatePixel(sample) {
             )
         return intervals
 
+    def _parse_sentinel2_intervals(self, payload: dict[str, Any]) -> list[dict[str, float]]:
+        intervals = []
+        for item in payload.get("data", []):
+            bands = item.get("outputs", {}).get("default", {}).get("bands", {})
+            water_stats = bands.get("B0", {}).get("stats", {})
+            vegetation_stats = bands.get("B1", {}).get("stats", {})
+            snow_stats = bands.get("B2", {}).get("stats", {})
+            ndvi_stats = bands.get("B3", {}).get("stats", {})
+
+            sample_count = water_stats.get("sampleCount") or 0
+            no_data_count = water_stats.get("noDataCount") or 0
+            valid_count = max(sample_count - no_data_count, 0)
+            if sample_count == 0 or valid_count == 0:
+                continue
+
+            intervals.append(
+                {
+                    "ndwi_water_fraction": float(water_stats.get("mean") or 0.0),
+                    "low_vegetation_fraction": float(vegetation_stats.get("mean") or 0.0),
+                    "snow_fraction": float(snow_stats.get("mean") or 0.0),
+                    "mean_ndvi": float(ndvi_stats.get("mean") or 0.0),
+                    "valid_pixel_fraction": valid_count / sample_count,
+                }
+            )
+        return intervals
+
     def _bbox_from_center(
         self,
         *,
@@ -320,6 +483,9 @@ function evaluatePixel(sample) {
         center_lat = (min_lat + max_lat) / 2
         lon_km = (max_lon - min_lon) * 111.32 * cos(radians(center_lat))
         return abs(lat_km * lon_km)
+
+    def _bbox_radius_km(self, bbox: list[float]) -> float:
+        return (self._bbox_area_km2(bbox) ** 0.5) / 2
 
     def _severity_for_water_fraction(self, water_fraction: float) -> Severity:
         if water_fraction >= 0.25:

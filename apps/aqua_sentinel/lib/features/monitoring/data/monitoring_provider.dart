@@ -19,6 +19,8 @@ final dioProvider = Provider<Dio>((ref) {
 
 final selectedWaterBodyProvider = StateProvider<WaterBodyInfo?>((ref) => null);
 
+final selectedAoiProvider = StateProvider<AoiSelection?>((ref) => null);
+
 enum ViewMode { monitor, simulate }
 
 final viewModeProvider = StateProvider<ViewMode>((ref) => ViewMode.monitor);
@@ -56,6 +58,17 @@ final riskTimelineProvider =
     }
     rethrow;
   }
+});
+
+final aoiRiskTimelineProvider =
+    FutureProvider.family<RiskTimeline, AoiSelection>((ref, selection) async {
+  final dio = ref.watch(dioProvider);
+
+  final response = await dio.post(
+    '/api/v1/environmental/risk-timeline/aoi',
+    data: selection.toRiskTimelineRequest(),
+  );
+  return RiskTimeline.fromJson(response.data);
 });
 
 final availableWaterBodiesProvider = FutureProvider<List<String>>((ref) async {

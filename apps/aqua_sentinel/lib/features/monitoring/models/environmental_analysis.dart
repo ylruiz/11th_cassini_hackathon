@@ -435,6 +435,35 @@ class RiskAction {
   }
 }
 
+class RiskEvidenceMetric {
+  final String label;
+  final double value;
+  final String unit;
+  final double fraction;
+  final String interpretation;
+  final String source;
+
+  RiskEvidenceMetric({
+    required this.label,
+    required this.value,
+    required this.unit,
+    required this.fraction,
+    required this.interpretation,
+    required this.source,
+  });
+
+  factory RiskEvidenceMetric.fromJson(Map<String, dynamic> json) {
+    return RiskEvidenceMetric(
+      label: json['label'] as String,
+      value: (json['value'] as num).toDouble(),
+      unit: json['unit'] as String,
+      fraction: (json['fraction'] as num).toDouble(),
+      interpretation: json['interpretation'] as String,
+      source: json['source'] as String,
+    );
+  }
+}
+
 class RiskTimeline {
   final String waterBodyId;
   final String waterBodyName;
@@ -445,6 +474,7 @@ class RiskTimeline {
   final List<RiskProjection> projections;
   final List<RiskImpact> impacts;
   final List<RiskAction> actions;
+  final List<RiskEvidenceMetric> evidence;
 
   RiskTimeline({
     required this.waterBodyId,
@@ -456,6 +486,7 @@ class RiskTimeline {
     required this.projections,
     required this.impacts,
     required this.actions,
+    required this.evidence,
   });
 
   factory RiskTimeline.fromJson(Map<String, dynamic> json) {
@@ -475,7 +506,53 @@ class RiskTimeline {
           (json['impacts'] as List).map((e) => RiskImpact.fromJson(e)).toList(),
       actions:
           (json['actions'] as List).map((e) => RiskAction.fromJson(e)).toList(),
+      evidence: (json['evidence'] as List? ?? [])
+          .map((e) => RiskEvidenceMetric.fromJson(e))
+          .toList(),
     );
+  }
+}
+
+class AoiBounds {
+  final double west;
+  final double south;
+  final double east;
+  final double north;
+
+  const AoiBounds({
+    required this.west,
+    required this.south,
+    required this.east,
+    required this.north,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'west': west,
+      'south': south,
+      'east': east,
+      'north': north,
+    };
+  }
+}
+
+class AoiSelection {
+  final String label;
+  final AoiBounds bbox;
+
+  const AoiSelection({
+    required this.label,
+    required this.bbox,
+  });
+
+  double get latitude => (bbox.south + bbox.north) / 2;
+  double get longitude => (bbox.west + bbox.east) / 2;
+
+  Map<String, dynamic> toRiskTimelineRequest() {
+    return {
+      'label': label,
+      'bbox': bbox.toJson(),
+    };
   }
 }
 
