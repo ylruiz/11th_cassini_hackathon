@@ -1,0 +1,32 @@
+{
+  "_provenance": "Curated static cache of Tyrolean settlements within / adjacent to the Inn Valley and Oetztal Alps AOIs. Population figures rounded from publicly available Statistik Austria municipality data. For demo/screening only; not a live cadastral feed.",
+  "_units": {
+    "latitude": "WGS84 degrees north",
+    "longitude": "WGS84 degrees east",
+    "population": "approximate residents"
+  },
+  "settlements": [
+    { "name": "Innsbruck", "lat": 47.2692, "lon": 11.4041, "population": 132000, "kind": "city", "region": "Inn Valley" },
+    { "name": "Hall in Tirol", "lat": 47.2833, "lon": 11.5072, "population": 14000, "kind": "town", "region": "Inn Valley" },
+    { "name": "Schwaz", "lat": 47.3514, "lon": 11.7089, "population": 13700, "kind": "town", "region": "Inn Valley" },
+    { "name": "Telfs", "lat": 47.3094, "lon": 11.0728, "population": 16000, "kind": "town", "region": "Inn Valley" },
+    { "name": "Wattens", "lat": 47.2929, "lon": 11.5946, "population": 8000, "kind": "town", "region": "Inn Valley" },
+    { "name": "Zirl", "lat": 47.2742, "lon": 11.2400, "population": 8200, "kind": "town", "region": "Inn Valley" },
+    { "name": "Rum", "lat": 47.2750, "lon": 11.4631, "population": 9100, "kind": "town", "region": "Inn Valley" },
+    { "name": "Absam", "lat": 47.2917, "lon": 11.5103, "population": 7100, "kind": "town", "region": "Inn Valley" },
+    { "name": "Mils", "lat": 47.2896, "lon": 11.5283, "population": 4600, "kind": "village", "region": "Inn Valley" },
+    { "name": "Volders", "lat": 47.2836, "lon": 11.5688, "population": 4500, "kind": "village", "region": "Inn Valley" },
+    { "name": "Goetzens", "lat": 47.2392, "lon": 11.3275, "population": 4100, "kind": "village", "region": "Inn Valley" },
+    { "name": "Imst", "lat": 47.2440, "lon": 10.7405, "population": 10800, "kind": "town", "region": "Oetztal Alps" },
+    { "name": "Soelden", "lat": 46.9667, "lon": 11.0067, "population": 4100, "kind": "village", "region": "Oetztal Alps" },
+    { "name": "Laengenfeld", "lat": 47.0717, "lon": 10.9700, "population": 4600, "kind": "village", "region": "Oetztal Alps" },
+    { "name": "Umhausen", "lat": 47.1333, "lon": 10.9333, "population": 3100, "kind": "village", "region": "Oetztal Alps" },
+    { "name": "Oetz", "lat": 47.2000, "lon": 10.9000, "population": 2500, "kind": "village", "region": "Oetztal Alps" },
+    { "name": "Sautens", "lat": 47.1908, "lon": 10.9269, "population": 1600, "kind": "village", "region": "Oetztal Alps" },
+    { "name": "Silz", "lat": 47.2750, "lon": 10.9417, "population": 2500, "kind": "village", "region": "Oetztal Alps" },
+    { "name": "Haiming", "lat": 47.2583, "lon": 10.8917, "population": 5000, "kind": "village", "region": "Oetztal Alps" },
+    { "name": "Tarrenz", "lat": 47.2667, "lon": 10.7667, "population": 2800, "kind": "village", "region": "Oetztal Alps" },
+    { "name": "Roppen", "lat": 47.2333, "lon": 10.8333, "population": 2100, "kind": "village", "region": "Oetztal Alps" },
+    { "name": "Vent", "lat": 46.8597, "lon": 10.9119, "population": 150, "kind": "village", "region": "Oetztal Alps" }
+  ]
+}

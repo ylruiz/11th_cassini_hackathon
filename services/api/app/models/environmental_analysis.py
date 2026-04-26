@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from enum import Enum
 
 
@@ -122,6 +122,58 @@ class RiskEvidenceMetric(BaseModel):
     source: str
 
 
+class Settlement(BaseModel):
+    name: str
+    latitude: float
+    longitude: float
+    population: int
+    kind: str
+    region: str
+    distance_km: float
+
+
+class SettlementExposure(BaseModel):
+    total_settlements: int
+    total_population: int
+    inside_aoi: int
+    within_buffer: int
+    buffer_km: float
+    settlements: list[Settlement]
+
+
+class RiskWeights(BaseModel):
+    """Multipliers (0.0 - 2.0) applied to the four evidence channels.
+
+    Default 1.0 reproduces the canonical timeline. Bounds keep the model in a
+    sane regime; 0 fully suppresses a channel, 2 doubles its push on
+    projections.
+    """
+
+    snow: float = Field(default=1.0, ge=0.0, le=2.0)
+    surface_water: float = Field(default=1.0, ge=0.0, le=2.0)
+    vegetation: float = Field(default=1.0, ge=0.0, le=2.0)
+    hydrology: float = Field(default=1.0, ge=0.0, le=2.0)
+
+    def is_default(self) -> bool:
+        return all(
+            abs(value - 1.0) < 1e-9
+            for value in (self.snow, self.surface_water, self.vegetation, self.hydrology)
+        )
+
+
+class HistoryPoint(BaseModel):
+    month: str
+    ndsi_snow_fraction: float
+    efas_anomaly_percent: float
+
+
+class AoiHistory(BaseModel):
+    label: str
+    source: str
+    provenance: str
+    points: list[HistoryPoint]
+
+
 class RiskTimeline(BaseModel):
     water_body_id: str
     water_body_name: str
@@ -140,6 +192,8 @@ class RiskTimeline(BaseModel):
     impacts: list[RiskImpact]
     actions: list[RiskAction]
     evidence: list[RiskEvidenceMetric]
+    settlement_exposure: SettlementExposure | None = None
+    weights: RiskWeights | None = None
 
 
 class AoiBounds(BaseModel):
@@ -152,3 +206,4 @@ class AoiBounds(BaseModel):
 class AoiRiskTimelineRequest(BaseModel):
     label: str = "Custom Alpine AOI"
     bbox: AoiBounds
+    weights: RiskWeights | None = None

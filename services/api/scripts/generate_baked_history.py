@@ -1,0 +1,188 @@
+"""Generate a synthetic 96-month NDSI/EFAS history for the Inn Valley and
+Oetztal Alps AOIs.
+
+The output drops directly into ``services/api/app/data/aoi_history.json`` and
+is consumed by ``GET /risk-timeline/aoi/history`` plus the SimulateTab chart.
+
+The shape and seasonality intentionally mirror what an openEO Sentinel-2 +
+EFAS export will produce (see ``python_analysis/openeo_history_format.md``)
+so the file can later be replaced by the real export with no front-end
+changes.
+
+Usage::
+
+    cd services/api
+    .venv/bin/python scripts/generate_baked_history.py
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import random
+from dataclasses import dataclass
+from pathlib import Path
+
+OUTPUT_PATH = Path(__file__).resolve().parents[1] / "app" / "data" / "aoi_history.json"
+
+# 96 months ending in December 2025 (matches the openEO trend figure window).
+START_YEAR = 2018
+START_MONTH = 1
+N_MONTHS = 96
+
+
+@dataclass(frozen=True)
+class AoiProfile:
+    """Parameters describing a single AOI's seasonal hydrology fingerprint."""
+
+    key: str
+    label: str
+    aliases: tuple[str, ...]
+    # NDSI seasonal fit: snow_min..snow_max with peak at month_peak (1=Jan)
+    snow_min: float
+    snow_max: float
+    month_peak: int
+    # Annual trend: linear decline per year applied to NDSI baseline.
+    snow_decline_per_year: float
+    # EFAS anomaly base + amplitude + trend.
+    efas_base: float
+    efas_amplitude: float
+    efas_trend_per_year: float
+    # Phase offset (months) of EFAS peak relative to NDSI trough (snowmelt
+    # arrives a few months after peak snow).
+    efas_phase_offset_months: int
+    # Stochastic noise seed.
+    seed: int
+
+
+PROFILES = [
+    AoiProfile(
+        key="inn-valley",
+        label="Inn Valley",
+        aliases=(
+            "inn river",
+            "inn valley",
+            "inn valley aoi",
+            "selected inn river aoi",
+        ),
+        snow_min=0.04,
+        snow_max=0.78,
+        month_peak=2,
+        snow_decline_per_year=0.022,
+        efas_base=8.0,
+        efas_amplitude=11.0,
+        efas_trend_per_year=1.4,
+        efas_phase_offset_months=4,
+        seed=42,
+    ),
+    AoiProfile(
+        key="oetztal-alps",
+        label="Oetztal Alps",
+        aliases=(
+            "oetztal",
+            "oetztal alps",
+            "oetztal alps aoi",
+            "selected alpine aoi",
+            "oetztal alps tributary catchments",
+        ),
+        snow_min=0.07,
+        snow_max=0.86,
+        month_peak=2,
+        snow_decline_per_year=0.028,
+        efas_base=6.0,
+        efas_amplitude=9.0,
+        efas_trend_per_year=1.2,
+        efas_phase_offset_months=4,
+        seed=137,
+    ),
+]
+
+
+def _add_months(year: int, month: int, delta: int) -> tuple[int, int]:
+    total = (year * 12 + (month - 1)) + delta
+    return total // 12, total % 12 + 1
+
+
+def _seasonal_ndsi(profile: AoiProfile, month_index: int) -> float:
+    """Cosine-based NDSI seasonal cycle with a long-term decline."""
+    _, month = _add_months(START_YEAR, START_MONTH, month_index)
+    years_elapsed = month_index / 12.0
+
+    baseline_max = profile.snow_max - profile.snow_decline_per_year * years_elapsed
+    baseline_max = max(baseline_max, profile.snow_min + 0.02)
+    amplitude = (baseline_max - profile.snow_min) / 2.0
+    centre = (baseline_max + profile.snow_min) / 2.0
+
+    angle = 2.0 * math.pi * ((month - profile.month_peak) / 12.0)
+    seasonal = centre + amplitude * math.cos(angle)
+    return max(0.0, min(1.0, seasonal))
+
+
+def _seasonal_efas(profile: AoiProfile, month_index: int) -> float:
+    _, month = _add_months(START_YEAR, START_MONTH, month_index)
+    years_elapsed = month_index / 12.0
+    angle = (
+        2.0
+        * math.pi
+        * ((month - profile.month_peak - profile.efas_phase_offset_months) / 12.0)
+    )
+    base = profile.efas_base + profile.efas_trend_per_year * years_elapsed
+    return base + profile.efas_amplitude * math.cos(angle)
+
+
+def _build_points(profile: AoiProfile) -> list[dict[str, float | str]]:
+    rng = random.Random(profile.seed)
+    points: list[dict[str, float | str]] = []
+    for i in range(N_MONTHS):
+        year, month = _add_months(START_YEAR, START_MONTH, i)
+        ndsi = _seasonal_ndsi(profile, i) + rng.uniform(-0.04, 0.04)
+        ndsi = round(max(0.0, min(1.0, ndsi)), 3)
+        efas = _seasonal_efas(profile, i) + rng.uniform(-3.0, 3.0)
+        efas = round(efas, 1)
+        points.append(
+            {
+                "month": f"{year:04d}-{month:02d}",
+                "ndsi_snow_fraction": ndsi,
+                "efas_anomaly_percent": efas,
+            }
+        )
+    return points
+
+
+def main() -> None:
+    histories: dict[str, dict[str, object]] = {}
+    for profile in PROFILES:
+        histories[profile.key] = {
+            "label": profile.label,
+            "aliases": list(profile.aliases),
+            "source": "Sentinel-2 L2A NDSI proxy + CDS Lisflood-EFAS seasonal anomaly (synthetic baseline)",
+            "provenance": (
+                "Generated by services/api/scripts/generate_baked_history.py with seasonality "
+                "tuned to match the openEO Sentinel-2 trend figure (Apr 2018 - Dec 2025). "
+                "Replace via scripts/import_openeo_history.py once the real openEO export is available."
+            ),
+            "points": _build_points(profile),
+        }
+
+    payload = {
+        "_provenance": (
+            "Synthetic 96-month monthly time series for two Tyrolean AOIs. "
+            "Seasonality and the long-term snow-cover decline are calibrated to match the "
+            "Sentinel-2 trend product produced by the openEO pipeline; numbers are still "
+            "synthetic until the real export drops in via scripts/import_openeo_history.py."
+        ),
+        "histories": histories,
+    }
+
+    OUTPUT_PATH.write_text(
+        json.dumps(payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    print(
+        f"Wrote {OUTPUT_PATH.relative_to(Path.cwd()) if OUTPUT_PATH.is_relative_to(Path.cwd()) else OUTPUT_PATH} "
+        f"with {N_MONTHS} months for {len(PROFILES)} AOIs."
+    )
+
+
+if __name__ == "__main__":
+    main()

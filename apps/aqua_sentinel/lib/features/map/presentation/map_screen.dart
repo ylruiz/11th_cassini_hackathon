@@ -14,7 +14,6 @@ import '../../monitoring/models/environmental_analysis.dart';
 import '../../monitoring/presentation/analysis_panel.dart';
 import '../../simulator/models/water_issue_scenario.dart';
 
-
 /// Set this to a lat/lon to make the map fly to that location.
 /// MapView listens to it and clears it after moving.
 final mapNavigationProvider = StateProvider<LatLng?>((ref) => null);
@@ -66,89 +65,98 @@ class _MapViewState extends ConsumerState<MapView> {
       }
     });
 
-    return Row(
-      children: [
-        Expanded(
-          flex: 6,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xFF060E1A),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFF00D4FF).withValues(alpha: 0.15),
-                ),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Column(
-                  children: [
-                    if (selectedBody != null)
-                      ScenarioSelector(
-                          ref: ref,
-                          body: selectedBody,
-                          context: context,
-                          scenarios: _scenarios),
-                    _buildAoiToolbar(context),
-                    Expanded(
-                      child: FlutterMap(
-                        mapController: _mapController,
-                        options: MapOptions(
-                          initialCenter: const LatLng(46.0, 15.0),
-                          initialZoom: 4.5,
-                          onTap: (_, point) => _handleMapTap(point),
-                        ),
-                        children: [
-                          TileLayer(
-                            urlTemplate:
-                                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                            userAgentPackageName: 'eu.cassini.aqua_sentinel',
-                          ),
-                          MarkerLayer(
-                            markers:
-                                waterBodies.map(_buildWaterBodyMarker).toList(),
-                          ),
-                          MarkerLayer(
-                            markers: mountainRanges
-                                .map(_buildMountainMarker)
-                                .toList(),
-                          ),
-                          if (selectedAoi != null)
-                            PolygonLayer(
-                              polygons: [_buildAoiPolygon(selectedAoi)],
-                            ),
-                          if (_aoiStart != null)
-                            MarkerLayer(
-                              markers: [
-                                Marker(
-                                  point: _aoiStart!,
-                                  width: 34,
-                                  height: 34,
-                                  child: const Icon(
-                                    PhosphorIconsRegular.crosshair,
-                                    color: Color(0xFF00D4FF),
-                                    size: 28,
-                                  ),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Right-hand analysis panel scales with the viewport so the trend
+        // chart and slider rows have room to breathe on wider monitors,
+        // while still leaving the map dominant on smaller screens.
+        final panelWidth = (constraints.maxWidth * 0.42).clamp(460.0, 620.0);
+        return Row(
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF060E1A),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFF00D4FF).withValues(alpha: 0.15),
                     ),
-                    const Footer(),
-                  ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Column(
+                      children: [
+                        if (selectedBody != null)
+                          ScenarioSelector(
+                              ref: ref,
+                              body: selectedBody,
+                              context: context,
+                              scenarios: _scenarios),
+                        _buildAoiToolbar(context),
+                        Expanded(
+                          child: FlutterMap(
+                            mapController: _mapController,
+                            options: MapOptions(
+                              initialCenter: const LatLng(46.0, 15.0),
+                              initialZoom: 4.5,
+                              onTap: (_, point) => _handleMapTap(point),
+                            ),
+                            children: [
+                              TileLayer(
+                                urlTemplate:
+                                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                userAgentPackageName:
+                                    'eu.cassini.aqua_sentinel',
+                              ),
+                              MarkerLayer(
+                                markers: waterBodies
+                                    .map(_buildWaterBodyMarker)
+                                    .toList(),
+                              ),
+                              MarkerLayer(
+                                markers: mountainRanges
+                                    .map(_buildMountainMarker)
+                                    .toList(),
+                              ),
+                              if (selectedAoi != null)
+                                PolygonLayer(
+                                  polygons: [_buildAoiPolygon(selectedAoi)],
+                                ),
+                              if (_aoiStart != null)
+                                MarkerLayer(
+                                  markers: [
+                                    Marker(
+                                      point: _aoiStart!,
+                                      width: 34,
+                                      height: 34,
+                                      child: const Icon(
+                                        PhosphorIconsRegular.crosshair,
+                                        color: Color(0xFF00D4FF),
+                                        size: 28,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
+                        const Footer(),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-        ),
-        if (selectedBody != null || selectedAoi != null)
-          const SizedBox(
-            width: 460,
-            child: AnalysisPanel(),
-          ),
-      ],
+            if (selectedBody != null || selectedAoi != null)
+              SizedBox(
+                width: panelWidth,
+                child: const AnalysisPanel(),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -286,8 +294,7 @@ class _MapViewState extends ConsumerState<MapView> {
               north: mountain.latitude + 0.5,
             ),
           );
-          _mapController.move(
-              LatLng(mountain.latitude, mountain.longitude), 6);
+          _mapController.move(LatLng(mountain.latitude, mountain.longitude), 6);
         },
         child: Container(
           decoration: BoxDecoration(
@@ -328,8 +335,8 @@ class _MapViewState extends ConsumerState<MapView> {
       }
     }
     for (final mountain in mountainRanges) {
-      if (_calculateDistance(point.latitude, point.longitude,
-              mountain.latitude, mountain.longitude) <
+      if (_calculateDistance(point.latitude, point.longitude, mountain.latitude,
+              mountain.longitude) <
           150) {
         ref.read(selectedWaterBodyProvider.notifier).state = null;
         ref.read(selectedAoiProvider.notifier).state = AoiSelection(
@@ -341,8 +348,7 @@ class _MapViewState extends ConsumerState<MapView> {
             north: mountain.latitude + 2.0,
           ),
         );
-        _mapController.move(
-            LatLng(mountain.latitude, mountain.longitude), 6);
+        _mapController.move(LatLng(mountain.latitude, mountain.longitude), 6);
         return;
       }
     }
@@ -368,6 +374,19 @@ class _MapViewState extends ConsumerState<MapView> {
         SnackBar(
           content: Text(
             'Draw a larger region for AOI screening.',
+            style: GoogleFonts.inter(color: Colors.white),
+          ),
+          backgroundColor: const Color(0xFF0D1B2A),
+        ),
+      );
+      return;
+    }
+
+    if ((east - west) > 1.2 || (north - south) > 1.2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'AOI is too large. Keep it below 1.2 degrees per side.',
             style: GoogleFonts.inter(color: Colors.white),
           ),
           backgroundColor: const Color(0xFF0D1B2A),

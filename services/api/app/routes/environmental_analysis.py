@@ -1,14 +1,32 @@
 import logging
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from app.models.environmental_analysis import (
+    AoiHistory,
     AoiRiskTimelineRequest,
     AreaAnalysis,
     RiskTimeline,
+    RiskWeights,
 )
 from app.services.copernicus_flood_data import copernicus_flood_service
 from app.services.long_term_risk import long_term_risk_service
 from app.services.mock_satellite_data import mock_satellite_service
+
+
+def _build_weights(
+    snow: float | None,
+    surface_water: float | None,
+    vegetation: float | None,
+    hydrology: float | None,
+) -> RiskWeights | None:
+    if all(value is None for value in (snow, surface_water, vegetation, hydrology)):
+        return None
+    return RiskWeights(
+        snow=snow if snow is not None else 1.0,
+        surface_water=surface_water if surface_water is not None else 1.0,
+        vegetation=vegetation if vegetation is not None else 1.0,
+        hydrology=hydrology if hydrology is not None else 1.0,
+    )
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -68,14 +86,49 @@ async def get_available_water_bodies() -> list[str]:
 
 
 @router.get("/risk-timeline/{water_body_id}", response_model=RiskTimeline)
-async def get_risk_timeline(water_body_id: str) -> RiskTimeline:
+async def get_risk_timeline(
+    water_body_id: str,
+    weight_snow: float | None = Query(
+        None,
+        ge=0.0,
+        le=2.0,
+        description="Weight applied to the snow / NDSI evidence channel (default 1.0).",
+    ),
+    weight_surface_water: float | None = Query(
+        None,
+        ge=0.0,
+        le=2.0,
+        description="Weight applied to the SAR + NDWI surface-water channel.",
+    ),
+    weight_vegetation: float | None = Query(
+        None,
+        ge=0.0,
+        le=2.0,
+        description="Weight applied to the vegetation-buffering channel.",
+    ),
+    weight_hydrology: float | None = Query(
+        None,
+        ge=0.0,
+        le=2.0,
+        description="Weight applied to the cached EFAS / Lisflood discharge channel.",
+    ),
+) -> RiskTimeline:
     if water_body_id not in _WATER_BODY_IDS:
         raise HTTPException(
             status_code=404,
             detail=f"Water body '{water_body_id}' not found. Available IDs: {', '.join(_WATER_BODY_IDS)}",
         )
 
-    timeline = await long_term_risk_service.get_risk_timeline(water_body_id)
+    weights = _build_weights(
+        weight_snow,
+        weight_surface_water,
+        weight_vegetation,
+        weight_hydrology,
+    )
+    timeline = await long_term_risk_service.get_risk_timeline(
+        water_body_id,
+        weights=weights,
+    )
     if timeline is None:
         raise HTTPException(
             status_code=404,
@@ -91,6 +144,28 @@ async def get_aoi_risk_timeline(request: AoiRiskTimelineRequest) -> RiskTimeline
         return await long_term_risk_service.get_aoi_risk_timeline(
             label=request.label,
             bbox=request.bbox,
+            weights=request.weights,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/risk-timeline/aoi/history", response_model=AoiHistory)
+async def get_aoi_history(
+    label: str = Query(
+        ...,
+        description=(
+            "AOI label to look up. Matches the timeline `water_body_name` (e.g. "
+            "'Inn Valley AOI', 'Inn River', 'Oetztal Alps AOI')."
+        ),
+    ),
+) -> AoiHistory:
+    history = long_term_risk_service.get_aoi_history(label)
+    if history is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"No baked history available for '{label}'. Try 'Inn Valley AOI' or 'Oetztal Alps AOI'."
+            ),
+        )
+    return history
