@@ -38,7 +38,10 @@ dist/
 # ── Environment / Secrets ────────────────────────────────────────────────────
 .env
 !.env.example
-!apps/aqua_sentinel/.env
+apps/aqua_sentinel/.env
+
+# ── Vercel ───────────────────────────────────────────────────────────────────
+.vercel/
 
 # ── Android native build ─────────────────────────────────────────────────────
 **/android/app/debug/

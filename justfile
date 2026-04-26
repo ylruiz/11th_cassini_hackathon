@@ -21,6 +21,9 @@ app-run-web:
 app-build-web:
     cd apps/aqua_sentinel && flutter build web --release
 
+app-deploy-web:
+    ./scripts/deploy-fe.sh
+
 app-test:
     cd apps/aqua_sentinel && flutter test
 

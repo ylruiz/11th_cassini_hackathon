@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import UTC, datetime, timedelta
 from hashlib import sha1
 from math import cos, radians
@@ -10,6 +11,8 @@ from typing import Any
 from app.models.environmental_analysis import (
     AoiBounds,
     EnvironmentalProblem,
+    ProblemLocation,
+    ProblemType,
     RiskAction,
     RiskDriver,
     RiskEvidenceMetric,
@@ -24,6 +27,7 @@ from app.services.copernicus_flood_data import copernicus_flood_service
 
 RISK_TIMELINE_CACHE_TTL = timedelta(minutes=15)
 HYDROLOGY_EVIDENCE_PATH = Path(__file__).resolve().parents[1] / "data" / "hydrology_evidence.json"
+logger = logging.getLogger(__name__)
 
 
 class LongTermRiskService:
@@ -41,7 +45,36 @@ class LongTermRiskService:
         if cached:
             return cached
 
-        flood_analysis = await copernicus_flood_service.get_inn_river_analysis()
+        try:
+            flood_analysis = await copernicus_flood_service.get_inn_river_analysis()
+        except Exception as exc:
+            logger.warning(
+                "Copernicus Inn River analysis failed (%s), building fallback timeline: %r",
+                type(exc).__name__,
+                exc,
+            )
+            flood_analysis = None
+
+        if flood_analysis is None:
+            # Build a fallback timeline using mock data so the UI still works
+            # when Copernicus credentials are missing.
+            from app.services.mock_satellite_data import mock_satellite_service
+
+            mock_analysis = mock_satellite_service.get_analysis_by_water_body("inn-river")
+            if mock_analysis is None:
+                return None
+
+            timeline = self._build_timeline(
+                water_body_id="inn-river",
+                water_body_name="Inn River",
+                flood_problem=mock_analysis.problems[0],
+                corridor_label="selected Inn River AOI",
+                sentinel2_evidence=None,
+            )
+            self._inn_cache = timeline
+            self._inn_cached_at = datetime.now(UTC)
+            return timeline
+
         timeline = self._build_timeline(
             water_body_id="inn-river",
             water_body_name="Inn River",
@@ -85,16 +118,39 @@ class LongTermRiskService:
             return cached[1]
 
         water_body_id = f"aoi-{cache_key[:10]}"
-        flood_analysis = await copernicus_flood_service.get_analysis_for_bbox(
-            bbox=bbox_values,
-            label=label,
-            water_body_id=water_body_id,
-        )
-        sentinel2_evidence = await self._get_sentinel2_evidence(bbox_values)
+        try:
+            flood_analysis = await copernicus_flood_service.get_analysis_for_bbox(
+                bbox=bbox_values,
+                label=label,
+                water_body_id=water_body_id,
+            )
+            sentinel2_evidence = await self._get_sentinel2_evidence(bbox_values)
+        except Exception as exc:
+            logger.warning(
+                "Copernicus AOI analysis failed (%s), building fallback timeline: %r",
+                type(exc).__name__,
+                exc,
+            )
+            # Build a minimal fallback problem for the AOI
+            flood_analysis = EnvironmentalProblem(
+                id=f"{water_body_id}-flood-001",
+                type=ProblemType.flood,
+                severity=Severity.medium,
+                location=ProblemLocation(
+                    latitude=(bbox.south + bbox.north) / 2,
+                    longitude=(bbox.west + bbox.east) / 2,
+                    radius_km=10.0,
+                ),
+                detected_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                source="Mock fallback (Copernicus unavailable)",
+                description="AOI screening fallback. No live Copernicus credentials configured.",
+            )
+            sentinel2_evidence = None
+
         timeline = self._build_timeline(
             water_body_id=water_body_id,
             water_body_name=label,
-            flood_problem=flood_analysis.problems[0],
+            flood_problem=flood_analysis.problems[0] if hasattr(flood_analysis, "problems") else flood_analysis,
             corridor_label="selected Alpine AOI",
             bbox=bbox_values,
             hydrology_evidence=self._get_hydrology_evidence(

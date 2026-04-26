@@ -1,0 +1,17 @@
+name: Keep Render Backend Warm
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'  # Every 10 minutes during hackathon
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend health endpoint
+        run: |
+          curl -sf https://aquasentinel-api.onrender.com/health \
+            -H "Accept: application/json" \
+            --max-time 30 \
+            || echo "Ping failed — backend may be sleeping"
