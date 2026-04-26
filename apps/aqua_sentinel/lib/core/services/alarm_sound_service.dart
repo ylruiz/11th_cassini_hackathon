@@ -5,7 +5,7 @@ import 'package:flutter_sound/flutter_sound.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../features/alerts/data/alarms_provider.dart';
+import '../../features/alerts/providers/alarms_provider.dart';
 import '../../features/alerts/models/alarm_model.dart';
 
 final flutterSoundProvider = Provider<FlutterSoundHelper>((ref) {
@@ -19,7 +19,7 @@ class FlutterSoundHelper {
 
   final FlutterSoundPlayer _player;
   bool _isInitialized = false;
-  StreamController<FoodData>? _streamController;
+  StreamController<FoodData>? get _streamController => null;
 
   Future<void> initialize() async {
     if (_isInitialized) return;

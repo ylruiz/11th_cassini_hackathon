@@ -210,7 +210,8 @@ class AlarmsNotifier extends AsyncNotifier<List<Alarm>> {
       location: AlarmLocation(latitude: 48.12, longitude: 21.40),
       triggerType: TriggerType.threshold,
       triggeredBy: 'Copernicus EMS activation EMSR-731 — Tisza flood stage 4',
-      message: 'Severe flooding on Tisza River — 1,200 km² inundated near Tokaj',
+      message:
+          'Severe flooding on Tisza River — 1,200 km² inundated near Tokaj',
       sourceDataId: 'tisza-flood-001',
       createdAt: '2026-04-25T04:00:00Z',
       municipality: 'Tokaj Region, Hungary',
@@ -227,8 +228,10 @@ class AlarmsNotifier extends AsyncNotifier<List<Alarm>> {
       status: AlarmStatus.active,
       location: AlarmLocation(latitude: 44.90, longitude: 11.62),
       triggerType: TriggerType.threshold,
-      triggeredBy: 'Copernicus C3S drought index D4 — flow at 15% of seasonal average',
-      message: 'Critical drought on Po River — industrial pollutants unmitigated',
+      triggeredBy:
+          'Copernicus C3S drought index D4 — flow at 15% of seasonal average',
+      message:
+          'Critical drought on Po River — industrial pollutants unmitigated',
       sourceDataId: 'po-drought-001',
       createdAt: '2026-04-25T08:00:00Z',
       municipality: 'Po Delta, Italy',
@@ -246,7 +249,8 @@ class AlarmsNotifier extends AsyncNotifier<List<Alarm>> {
       location: AlarmLocation(latitude: 41.52, longitude: 26.04),
       triggerType: TriggerType.threshold,
       triggeredBy: 'Sentinel-2 MSI heavy metal spectral anomaly z-score > 4.8',
-      message: 'Lead contamination 5× EU limit on Maritsa River — mining discharge',
+      message:
+          'Lead contamination 5× EU limit on Maritsa River — mining discharge',
       sourceDataId: 'maritsa-002',
       createdAt: '2026-04-25T02:00:00Z',
       municipality: 'Plovdiv Region, Bulgaria',
@@ -260,7 +264,6 @@ class AlarmsNotifier extends AsyncNotifier<List<Alarm>> {
 }
 
 final _newAlarmsStreamController = StreamController<List<Alarm>>.broadcast();
-final _newAlarmsStream = _newAlarmsStreamController;
 
 Stream<List<Alarm>> get newAlarmsStream => _newAlarmsStreamController.stream;
 
@@ -283,3 +286,7 @@ final criticalAlarmCountProvider = Provider<int>((ref) {
       .where((a) => a.severity == AlarmSeverity.critical)
       .length;
 });
+
+/// The alarm currently selected / focused on the monitoring map.
+/// Set this before navigating to the map so the map auto-highlights the alarm.
+final selectedAlarmIdProvider = StateProvider<String?>((ref) => null);

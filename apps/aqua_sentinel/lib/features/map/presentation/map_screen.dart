@@ -1,3 +1,5 @@
+import 'package:aqua_sentinel/features/map/presentation/widgets/footer.dart';
+import 'package:aqua_sentinel/features/map/presentation/widgets/scenario_selector.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -6,10 +8,13 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
-import '../../monitoring/data/monitoring_provider.dart';
+import '../../alerts/providers/alarms_provider.dart';
+import '../../alerts/models/alarm_model.dart';
+import '../../monitoring/providers/monitoring_provider.dart';
 import '../../monitoring/models/environmental_analysis.dart';
 import '../../monitoring/presentation/analysis_panel.dart';
 import '../../simulator/models/water_issue_scenario.dart';
+
 
 /// Set this to a lat/lon to make the map fly to that location.
 /// MapView listens to it and clears it after moving.
@@ -37,6 +42,7 @@ class MapView extends ConsumerStatefulWidget {
 
 class _MapViewState extends ConsumerState<MapView> {
   final MapController _mapController = MapController();
+  Alarm? _selectedAlarm;
   bool _isAoiMode = false;
   LatLng? _aoiStart;
 
@@ -53,6 +59,19 @@ class _MapViewState extends ConsumerState<MapView> {
             ref.read(mapNavigationProvider.notifier).state = null;
           }
         });
+      }
+    });
+
+    ref.listen<String?>(selectedAlarmIdProvider, (_, alarmId) {
+      if (alarmId != null) {
+        final alarms = ref.read(activeAlarmsProvider);
+        final matches = alarms.where((a) => a.id == alarmId).toList();
+        if (matches.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _selectedAlarm = matches.first);
+          });
+        }
+        ref.read(selectedAlarmIdProvider.notifier).state = null;
       }
     });
 
@@ -75,7 +94,11 @@ class _MapViewState extends ConsumerState<MapView> {
                 child: Column(
                   children: [
                     if (selectedBody != null)
-                      _buildScenarioSelector(selectedBody, context),
+                      ScenarioSelector(
+                          ref: ref,
+                          body: selectedBody,
+                          context: context,
+                          scenarios: _scenarios),
                     _buildAoiToolbar(context),
                     Expanded(
                       child: FlutterMap(
@@ -117,7 +140,7 @@ class _MapViewState extends ConsumerState<MapView> {
                         ],
                       ),
                     ),
-                    _buildFooter(),
+                    Footer(),
                   ],
                 ),
               ),
@@ -173,14 +196,14 @@ class _MapViewState extends ConsumerState<MapView> {
             ),
           ),
           const SizedBox(width: 8),
-          _ToolbarButton(
+          ToolbarButton(
             label: 'OETZTAL PRESET',
             icon: PhosphorIconsRegular.mountains,
             isActive: selectedAoi?.label == 'Oetztal Alps AOI',
             onTap: _selectOetztalPreset,
           ),
           const SizedBox(width: 8),
-          _ToolbarButton(
+          ToolbarButton(
             label: _isAoiMode ? 'CANCEL DRAW' : 'DRAW AOI',
             icon: _isAoiMode
                 ? PhosphorIconsRegular.x
@@ -192,205 +215,6 @@ class _MapViewState extends ConsumerState<MapView> {
                 _aoiStart = null;
               });
             },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildScenarioSelector(WaterBodyInfo body, BuildContext context) {
-    final selectedIssue = ref.watch(selectedIssueTypeProvider);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D1B2A),
-        border: Border(
-          bottom: BorderSide(
-            color: const Color(0xFF00D4FF).withValues(alpha: 0.15),
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          const Icon(PhosphorIconsRegular.drop,
-              color: Color(0xFF00D4FF), size: 14),
-          const SizedBox(width: 6),
-          Text(
-            body.name,
-            style: GoogleFonts.spaceGrotesk(
-              color: const Color(0xFF00D4FF),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(width: 1, height: 16, color: Colors.white12),
-          const SizedBox(width: 12),
-          Text(
-            'SCENARIO:',
-            style: GoogleFonts.spaceGrotesk(
-              color: Colors.white38,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _scenarios.map((s) {
-                  final (type, label, color) = s;
-                  final isSelected = type == selectedIssue;
-                  return GestureDetector(
-                    onTap: () {
-                      ref.read(selectedIssueTypeProvider.notifier).state = type;
-                      ref.read(viewModeProvider.notifier).state =
-                          ViewMode.simulate;
-                    },
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? color.withValues(alpha: 0.15)
-                              : const Color(0xFF1A2A3A),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: isSelected
-                                ? color
-                                : color.withValues(alpha: 0.25),
-                          ),
-                        ),
-                        child: Text(
-                          label,
-                          style: GoogleFonts.spaceGrotesk(
-                            color: isSelected
-                                ? color
-                                : color.withValues(alpha: 0.55),
-                            fontSize: 11,
-                            fontWeight: isSelected
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Simulation running for ${selectedIssue.name}...',
-                    style: GoogleFonts.inter(color: Colors.white),
-                  ),
-                  backgroundColor: const Color(0xFF0D1B2A),
-                ),
-              );
-            },
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.greenAccent.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                      color: Colors.greenAccent.withValues(alpha: 0.5)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(PhosphorIconsRegular.play,
-                        color: Colors.greenAccent, size: 13),
-                    const SizedBox(width: 6),
-                    Text(
-                      'RUN SIMULATION',
-                      style: GoogleFonts.spaceGrotesk(
-                        color: Colors.greenAccent,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFooter() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D1B2A),
-        border: Border(
-          top: BorderSide(
-            color: const Color(0xFF00D4FF).withValues(alpha: 0.15),
-          ),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            PhosphorIconsRegular.mapTrifold,
-            color: const Color(0xFF00D4FF).withValues(alpha: 0.5),
-            size: 13,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            'OpenStreetMap',
-            style: TextStyle(
-              color: const Color(0xFF00D4FF).withValues(alpha: 0.5),
-              fontSize: 10,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Icon(
-            PhosphorIconsRegular.mapPin,
-            color: const Color(0xFF00D4FF).withValues(alpha: 0.7),
-            size: 13,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            'Galileo / EGNOS',
-            style: TextStyle(
-              color: const Color(0xFF00D4FF).withValues(alpha: 0.7),
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Icon(
-            PhosphorIconsRegular.broadcast,
-            color: const Color(0xFF00D4FF).withValues(alpha: 0.7),
-            size: 13,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            'Copernicus Sentinel-2',
-            style: TextStyle(
-              color: const Color(0xFF00D4FF).withValues(alpha: 0.7),
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-            ),
           ),
         ],
       ),
@@ -485,9 +309,9 @@ class _MapViewState extends ConsumerState<MapView> {
 
     ref.read(selectedWaterBodyProvider.notifier).state = null;
     ref.read(selectedAoiProvider.notifier).state = AoiSelection(
-          label: 'Custom Alpine AOI',
-          bbox: AoiBounds(west: west, south: south, east: east, north: north),
-        );
+      label: 'Custom Alpine AOI',
+      bbox: AoiBounds(west: west, south: south, east: east, north: north),
+    );
     setState(() {
       _isAoiMode = false;
       _aoiStart = null;
@@ -497,14 +321,14 @@ class _MapViewState extends ConsumerState<MapView> {
   void _selectOetztalPreset() {
     ref.read(selectedWaterBodyProvider.notifier).state = null;
     ref.read(selectedAoiProvider.notifier).state = const AoiSelection(
-          label: 'Oetztal Alps AOI',
-          bbox: AoiBounds(
-            west: 10.75,
-            south: 46.75,
-            east: 11.35,
-            north: 47.35,
-          ),
-        );
+      label: 'Oetztal Alps AOI',
+      bbox: AoiBounds(
+        west: 10.75,
+        south: 46.75,
+        east: 11.35,
+        north: 47.35,
+      ),
+    );
     setState(() {
       _isAoiMode = false;
       _aoiStart = null;
@@ -566,18 +390,19 @@ class _MapViewState extends ConsumerState<MapView> {
   }
 }
 
-class _ToolbarButton extends StatelessWidget {
-  final String label;
-  final PhosphorIconData icon;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _ToolbarButton({
+class ToolbarButton extends StatelessWidget {
+  const ToolbarButton({
+    super.key,
     required this.label,
     required this.icon,
     required this.isActive,
     required this.onTap,
   });
+
+  final String label;
+  final PhosphorIconData icon;
+  final bool isActive;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
