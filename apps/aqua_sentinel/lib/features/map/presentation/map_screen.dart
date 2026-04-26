@@ -14,7 +14,6 @@ import '../../monitoring/models/environmental_analysis.dart';
 import '../../monitoring/presentation/analysis_panel.dart';
 import '../../simulator/models/water_issue_scenario.dart';
 
-
 /// Set this to a lat/lon to make the map fly to that location.
 /// MapView listens to it and clears it after moving.
 final mapNavigationProvider = StateProvider<LatLng?>((ref) => null);
@@ -108,7 +107,8 @@ class _MapViewState extends ConsumerState<MapView> {
                               TileLayer(
                                 urlTemplate:
                                     'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                userAgentPackageName: 'eu.cassini.aqua_sentinel',
+                                userAgentPackageName:
+                                    'eu.cassini.aqua_sentinel',
                               ),
                               MarkerLayer(
                                 markers: waterBodies
