@@ -131,7 +131,7 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
           ),
           const SizedBox(height: 16),
           Text(
-            'Select a water body',
+            'Select a location',
             style: GoogleFonts.spaceGrotesk(
               color: Colors.white54,
               fontSize: 16,
@@ -140,7 +140,7 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
           ),
           const SizedBox(height: 8),
           Text(
-            'Tap a marker on the map to view\nenvironmental analysis data',
+            'Tap a water body or mountain on the map\nto view environmental analysis data',
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               color: Colors.white38,
@@ -220,6 +220,8 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
       color: const Color(0xFF060E1A),
       child: TabBar(
         controller: _tabController,
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
         indicatorColor: primary,
         labelColor: primary,
         unselectedLabelColor: Colors.white38,
