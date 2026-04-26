@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from math import cos, radians
 from typing import Any
@@ -24,17 +25,38 @@ CDSE_AUTH_URL = (
     "openid-connect/token"
 )
 SENTINEL_HUB_STATISTICS_URL = "https://sh.dataspace.copernicus.eu/api/v1/statistics"
+ANALYSIS_CACHE_TTL = timedelta(minutes=15)
 
 
 class CopernicusFloodService:
     def __init__(self) -> None:
         self._access_token: str | None = None
         self._expires_at: datetime | None = None
+        self._analysis_cache: AreaAnalysis | None = None
+        self._analysis_cached_at: datetime | None = None
+        self._analysis_lock = asyncio.Lock()
 
     async def get_inn_river_analysis(self) -> AreaAnalysis:
+        cached = self._get_cached_analysis()
+        if cached:
+            return cached
+
+        async with self._analysis_lock:
+            cached = self._get_cached_analysis()
+            if cached:
+                return cached
+
+            return await self._fetch_inn_river_analysis()
+
+    async def _fetch_inn_river_analysis(self) -> AreaAnalysis:
         latitude = 48.57
         longitude = 13.48
-        bbox = self._bbox_from_center(latitude=latitude, longitude=longitude, radius_km=25)
+        radius_km = 15
+        bbox = self._bbox_from_center(
+            latitude=latitude,
+            longitude=longitude,
+            radius_km=radius_km,
+        )
         to_date = datetime.now(UTC)
         from_date = to_date - timedelta(days=30)
 
@@ -53,12 +75,12 @@ class CopernicusFloodService:
 
         problem_id = "copernicus-inn-flood-001"
         description = (
-            f"Sentinel-1 SAR flood screening over a 25 km Inn River AOI estimates "
+            f"Sentinel-1 SAR flood screening over a {radius_km} km Inn River AOI estimates "
             f"{flooded_area_km2:.1f} km² of water-like backscatter "
             f"({water_fraction * 100:.1f}% of the sampled area). {trend}"
         )
 
-        return AreaAnalysis(
+        analysis = AreaAnalysis(
             water_body_id="inn-river",
             water_body_name="Inn River",
             latitude=latitude,
@@ -71,7 +93,7 @@ class CopernicusFloodService:
                     location=ProblemLocation(
                         latitude=latitude,
                         longitude=longitude,
-                        radius_km=25.0,
+                        radius_km=float(radius_km),
                     ),
                     detected_at=detected_at,
                     source="Copernicus Sentinel-1 GRD",
@@ -129,6 +151,18 @@ class CopernicusFloodService:
                 )
             ],
         )
+        self._analysis_cache = analysis
+        self._analysis_cached_at = datetime.now(UTC)
+        return analysis
+
+    def _get_cached_analysis(self) -> AreaAnalysis | None:
+        if not self._analysis_cache or not self._analysis_cached_at:
+            return None
+
+        if datetime.now(UTC) - self._analysis_cached_at > ANALYSIS_CACHE_TTL:
+            return None
+
+        return self._analysis_cache
 
     async def _fetch_sentinel1_water_series(
         self,
@@ -189,8 +223,8 @@ function evaluatePixel(sample) {
                 },
                 "aggregationInterval": {"of": "P7D"},
                 "evalscript": evalscript,
-                "resx": 0.0005,
-                "resy": 0.0005,
+                "resx": 0.001,
+                "resy": 0.001,
             },
         }
 

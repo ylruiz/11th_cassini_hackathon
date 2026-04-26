@@ -20,7 +20,7 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -40,6 +40,7 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
 
     final analysisAsync =
         ref.watch(environmentalAnalysisProvider(selectedBody.id));
+    final riskTimelineAsync = ref.watch(riskTimelineProvider(selectedBody.id));
 
     return Container(
       color: const Color(0xFF060E1A),
@@ -49,14 +50,10 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
           _buildTabBar(cs),
           Expanded(
             child: analysisAsync.when(
-              data: (analysis) => TabBarView(
-                controller: _tabController,
-                children: [
-                  _ProblemsTab(analysis: analysis),
-                  _CausesTab(analysis: analysis),
-                  _PreventionTab(analysis: analysis),
-                  _ImpactsTab(analysis: analysis),
-                ],
+              data: (analysis) => riskTimelineAsync.when(
+                data: (riskTimeline) => _buildTabView(analysis, riskTimeline),
+                loading: () => _buildTabView(analysis, null),
+                error: (_, __) => _buildTabView(analysis, null),
               ),
               loading: () => const Center(
                 child: CircularProgressIndicator(color: Color(0xFF00D4FF)),
@@ -74,6 +71,19 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
     );
   }
 
+  Widget _buildTabView(AreaAnalysis analysis, RiskTimeline? riskTimeline) {
+    return TabBarView(
+      controller: _tabController,
+      children: [
+        _ProblemsTab(analysis: analysis, riskTimeline: riskTimeline),
+        _CausesTab(analysis: analysis, riskTimeline: riskTimeline),
+        _PreventionTab(analysis: analysis, riskTimeline: riskTimeline),
+        _ImpactsTab(analysis: analysis, riskTimeline: riskTimeline),
+        _SimulateTab(riskTimeline: riskTimeline),
+      ],
+    );
+  }
+
   Widget _buildEmptyState(ColorScheme cs) {
     return Container(
       color: const Color(0xFF060E1A),
@@ -81,7 +91,7 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          PhosphorIcon(
+          const PhosphorIcon(
             PhosphorIconsRegular.mapPin,
             color: Colors.white24,
             size: 48,
@@ -126,9 +136,9 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
                   color: const Color(0xFF00D4FF).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: PhosphorIcon(
+                child: const PhosphorIcon(
                   PhosphorIconsRegular.drop,
-                  color: const Color(0xFF00D4FF),
+                  color: Color(0xFF00D4FF),
                   size: 20,
                 ),
               ),
@@ -192,6 +202,7 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
           Tab(text: 'CAUSES'),
           Tab(text: 'PREVENTION'),
           Tab(text: 'IMPACT'),
+          Tab(text: 'SIMULATE'),
         ],
       ),
     );
@@ -200,8 +211,9 @@ class _AnalysisPanelState extends ConsumerState<AnalysisPanel>
 
 class _ProblemsTab extends StatelessWidget {
   final AreaAnalysis analysis;
+  final RiskTimeline? riskTimeline;
 
-  const _ProblemsTab({required this.analysis});
+  const _ProblemsTab({required this.analysis, this.riskTimeline});
 
   @override
   Widget build(BuildContext context) {
@@ -211,9 +223,12 @@ class _ProblemsTab extends StatelessWidget {
 
     return ListView.builder(
       padding: const EdgeInsets.all(12),
-      itemCount: analysis.problems.length,
+      itemCount: analysis.problems.length + (riskTimeline == null ? 0 : 1),
       itemBuilder: (context, index) {
-        final problem = analysis.problems[index];
+        if (riskTimeline != null && index == 0) {
+          return _CurrentSignalCard(signal: riskTimeline!.currentSignal);
+        }
+        final problem = analysis.problems[index - (riskTimeline == null ? 0 : 1)];
         return _ProblemCard(problem: problem);
       },
     );
@@ -292,7 +307,7 @@ class _ProblemCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              PhosphorIcon(PhosphorIconsRegular.broadcast,
+              const PhosphorIcon(PhosphorIconsRegular.broadcast,
                   color: Colors.white24, size: 12),
               const SizedBox(width: 4),
               Text(
@@ -300,7 +315,7 @@ class _ProblemCard extends StatelessWidget {
                 style: GoogleFonts.inter(color: Colors.white24, fontSize: 10),
               ),
               const Spacer(),
-              PhosphorIcon(PhosphorIconsRegular.clock,
+              const PhosphorIcon(PhosphorIconsRegular.clock,
                   color: Colors.white24, size: 12),
               const SizedBox(width: 4),
               Text(
@@ -339,11 +354,16 @@ class _ProblemCard extends StatelessWidget {
 
 class _CausesTab extends StatelessWidget {
   final AreaAnalysis analysis;
+  final RiskTimeline? riskTimeline;
 
-  const _CausesTab({required this.analysis});
+  const _CausesTab({required this.analysis, this.riskTimeline});
 
   @override
   Widget build(BuildContext context) {
+    if (riskTimeline != null) {
+      return _RiskDriversList(drivers: riskTimeline!.drivers);
+    }
+
     if (analysis.causes.isEmpty) {
       return Center(
         child: Text(
@@ -384,7 +404,7 @@ class _CauseCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              PhosphorIcon(PhosphorIconsRegular.lightbulb,
+              const PhosphorIcon(PhosphorIconsRegular.lightbulb,
                   color: Colors.purpleAccent, size: 16),
               const SizedBox(width: 8),
               Expanded(
@@ -446,7 +466,7 @@ class _CauseCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                PhosphorIcon(PhosphorIconsRegular.broadcast,
+                const PhosphorIcon(PhosphorIconsRegular.broadcast,
                     color: Colors.white24, size: 12),
                 const SizedBox(width: 6),
                 Expanded(
@@ -467,11 +487,16 @@ class _CauseCard extends StatelessWidget {
 
 class _PreventionTab extends StatelessWidget {
   final AreaAnalysis analysis;
+  final RiskTimeline? riskTimeline;
 
-  const _PreventionTab({required this.analysis});
+  const _PreventionTab({required this.analysis, this.riskTimeline});
 
   @override
   Widget build(BuildContext context) {
+    if (riskTimeline != null) {
+      return _RiskActionsList(actions: riskTimeline!.actions);
+    }
+
     if (analysis.preventionMeasures.isEmpty) {
       return Center(
         child: Text(
@@ -514,7 +539,7 @@ class _PreventionCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              PhosphorIcon(PhosphorIconsRegular.shieldCheck,
+              const PhosphorIcon(PhosphorIconsRegular.shieldCheck,
                   color: Colors.greenAccent, size: 16),
               const SizedBox(width: 8),
               Expanded(
@@ -574,7 +599,7 @@ class _PreventionCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      PhosphorIcon(PhosphorIconsRegular.currencyEur,
+                      const PhosphorIcon(PhosphorIconsRegular.currencyEur,
                           color: Colors.white38, size: 13),
                       const SizedBox(width: 6),
                       Flexible(
@@ -606,7 +631,7 @@ class _PreventionCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      PhosphorIcon(PhosphorIconsRegular.warning,
+                      const PhosphorIcon(PhosphorIconsRegular.warning,
                           color: Colors.orange, size: 13),
                       const SizedBox(width: 6),
                       Flexible(
@@ -690,11 +715,16 @@ class _InfoChip extends StatelessWidget {
 
 class _ImpactsTab extends StatelessWidget {
   final AreaAnalysis analysis;
+  final RiskTimeline? riskTimeline;
 
-  const _ImpactsTab({required this.analysis});
+  const _ImpactsTab({required this.analysis, this.riskTimeline});
 
   @override
   Widget build(BuildContext context) {
+    if (riskTimeline != null) {
+      return _RiskImpactsList(impacts: riskTimeline!.impacts);
+    }
+
     if (analysis.ecosystemImpacts.isEmpty) {
       return Center(
         child: Text(
@@ -735,7 +765,7 @@ class _ImpactCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              PhosphorIcon(PhosphorIconsRegular.plant,
+              const PhosphorIcon(PhosphorIconsRegular.plant,
                   color: Colors.orangeAccent, size: 16),
               const SizedBox(width: 8),
               Expanded(
@@ -851,6 +881,543 @@ class _ImpactMetric extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _CurrentSignalCard extends StatelessWidget {
+  final RiskSignal signal;
+
+  const _CurrentSignalCard({required this.signal});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _severityColor(signal.severity);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF081525),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              PhosphorIcon(PhosphorIconsRegular.broadcast, color: color, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  signal.label.toUpperCase(),
+                  style: GoogleFonts.spaceGrotesk(
+                    color: color,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+              Text(
+                signal.value,
+                style: GoogleFonts.spaceGrotesk(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            signal.summary,
+            style: GoogleFonts.inter(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            signal.source,
+            style: GoogleFonts.inter(color: Colors.white38, fontSize: 10),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RiskDriversList extends StatelessWidget {
+  final List<RiskDriver> drivers;
+
+  const _RiskDriversList({required this.drivers});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: drivers.length,
+      itemBuilder: (context, index) {
+        return _RiskDriverCard(driver: drivers[index]);
+      },
+    );
+  }
+}
+
+class _RiskDriverCard extends StatelessWidget {
+  final RiskDriver driver;
+
+  const _RiskDriverCard({required this.driver});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1B2A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.purpleAccent.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const PhosphorIcon(
+                PhosphorIconsRegular.lightbulb,
+                color: Colors.purpleAccent,
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  driver.label,
+                  style: GoogleFonts.spaceGrotesk(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _SmallPill(label: driver.status, color: Colors.purpleAccent),
+              const SizedBox(width: 8),
+              _SmallPill(label: driver.trend, color: const Color(0xFF00D4FF)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            driver.detail,
+            style: GoogleFonts.inter(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            driver.source,
+            style: GoogleFonts.inter(color: Colors.white38, fontSize: 10),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RiskActionsList extends StatelessWidget {
+  final List<RiskAction> actions;
+
+  const _RiskActionsList({required this.actions});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: actions.length,
+      itemBuilder: (context, index) {
+        return _RiskActionCard(action: actions[index]);
+      },
+    );
+  }
+}
+
+class _RiskActionCard extends StatelessWidget {
+  final RiskAction action;
+
+  const _RiskActionCard({required this.action});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1B2A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _SmallPill(label: action.priority, color: Colors.greenAccent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  action.timeline,
+                  textAlign: TextAlign.right,
+                  style: GoogleFonts.inter(color: Colors.white38, fontSize: 10),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            action.title,
+            style: GoogleFonts.spaceGrotesk(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            action.expectedEffect,
+            style: GoogleFonts.inter(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _SmallPill(label: action.estimatedCost, color: const Color(0xFF00D4FF)),
+        ],
+      ),
+    );
+  }
+}
+
+class _RiskImpactsList extends StatelessWidget {
+  final List<RiskImpact> impacts;
+
+  const _RiskImpactsList({required this.impacts});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: impacts.length,
+      itemBuilder: (context, index) {
+        return _RiskImpactCard(impact: impacts[index]);
+      },
+    );
+  }
+}
+
+class _RiskImpactCard extends StatelessWidget {
+  final RiskImpact impact;
+
+  const _RiskImpactCard({required this.impact});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1B2A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const PhosphorIcon(
+                PhosphorIconsRegular.warning,
+                color: Colors.orangeAccent,
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  impact.category.toUpperCase(),
+                  style: GoogleFonts.spaceGrotesk(
+                    color: Colors.orangeAccent,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            impact.metric,
+            style: GoogleFonts.spaceGrotesk(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            impact.value,
+            style: GoogleFonts.spaceGrotesk(
+              color: Colors.orangeAccent,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            impact.detail,
+            style: GoogleFonts.inter(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SimulateTab extends StatelessWidget {
+  final RiskTimeline? riskTimeline;
+
+  const _SimulateTab({this.riskTimeline});
+
+  @override
+  Widget build(BuildContext context) {
+    final timeline = riskTimeline;
+    if (timeline == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Future risk timeline is available for Inn River in this MVP.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
+          ),
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        _TimelineConfidenceCard(confidence: timeline.confidence),
+        const SizedBox(height: 12),
+        ...timeline.projections.map((projection) {
+          return _RiskProjectionCard(projection: projection);
+        }),
+      ],
+    );
+  }
+}
+
+class _TimelineConfidenceCard extends StatelessWidget {
+  final String confidence;
+
+  const _TimelineConfidenceCard({required this.confidence});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF081525),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF00D4FF).withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        confidence,
+        style: GoogleFonts.inter(
+          color: Colors.white70,
+          fontSize: 12,
+          height: 1.5,
+        ),
+      ),
+    );
+  }
+}
+
+class _RiskProjectionCard extends StatelessWidget {
+  final RiskProjection projection;
+
+  const _RiskProjectionCard({required this.projection});
+
+  @override
+  Widget build(BuildContext context) {
+    final floodColor = _severityColor(projection.floodRisk);
+    final landslideColor = _severityColor(projection.landslideRisk);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1B2A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: floodColor.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            projection.label,
+            style: GoogleFonts.spaceGrotesk(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _ProjectionMetric(
+                  label: 'Flood risk',
+                  value: projection.floodRisk.displayName,
+                  color: floodColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ProjectionMetric(
+                  label: 'Landslide risk',
+                  value: projection.landslideRisk.displayName,
+                  color: landslideColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _ProjectionMetric(
+                  label: 'Peak discharge',
+                  value: '+${projection.dischargeChangePercent.toStringAsFixed(0)}%',
+                  color: const Color(0xFF00D4FF),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ProjectionMetric(
+                  label: 'Flood-prone area',
+                  value:
+                      '+${projection.floodProneAreaChangePercent.toStringAsFixed(0)}%',
+                  color: Colors.orangeAccent,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            projection.summary,
+            style: GoogleFonts.inter(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProjectionMetric extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _ProjectionMetric({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.inter(color: Colors.white38, fontSize: 9),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: GoogleFonts.spaceGrotesk(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SmallPill extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _SmallPill({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.spaceGrotesk(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+Color _severityColor(Severity severity) {
+  switch (severity) {
+    case Severity.low:
+      return Colors.greenAccent;
+    case Severity.medium:
+      return Colors.orangeAccent;
+    case Severity.high:
+      return Colors.deepOrange;
+    case Severity.critical:
+      return const Color(0xFFFF4757);
   }
 }
 

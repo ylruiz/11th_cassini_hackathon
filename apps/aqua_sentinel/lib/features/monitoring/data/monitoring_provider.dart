@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../models/environmental_analysis.dart';
-import '../../simulator/data/simulator_provider.dart';
 import '../../simulator/models/water_issue_scenario.dart';
 
 final dioProvider = Provider<Dio>((ref) {
@@ -38,6 +37,22 @@ final environmentalAnalysisProvider =
   } on DioException catch (e) {
     if (e.response?.statusCode == 404) {
       return AreaAnalysis.empty();
+    }
+    rethrow;
+  }
+});
+
+final riskTimelineProvider =
+    FutureProvider.family<RiskTimeline?, String>((ref, waterBodyId) async {
+  final dio = ref.watch(dioProvider);
+
+  try {
+    final response =
+        await dio.get('/api/v1/environmental/risk-timeline/$waterBodyId');
+    return RiskTimeline.fromJson(response.data);
+  } on DioException catch (e) {
+    if (e.response?.statusCode == 404) {
+      return null;
     }
     rethrow;
   }
