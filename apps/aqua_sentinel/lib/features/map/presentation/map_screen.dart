@@ -181,6 +181,13 @@ class _MapViewState extends ConsumerState<MapView> {
           ),
           const SizedBox(width: 8),
           _ToolbarButton(
+            label: 'INN VALLEY',
+            icon: PhosphorIconsRegular.mapPin,
+            isActive: selectedAoi?.label == 'Inn Valley AOI',
+            onTap: _selectInnValleyPreset,
+          ),
+          const SizedBox(width: 8),
+          _ToolbarButton(
             label: _isAoiMode ? 'CANCEL DRAW' : 'DRAW AOI',
             icon: _isAoiMode
                 ? PhosphorIconsRegular.x
@@ -274,9 +281,8 @@ class _MapViewState extends ConsumerState<MapView> {
                                 ? color
                                 : color.withValues(alpha: 0.55),
                             fontSize: 11,
-                            fontWeight: isSelected
-                                ? FontWeight.w600
-                                : FontWeight.w400,
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.w400,
                           ),
                         ),
                       ),
@@ -485,9 +491,9 @@ class _MapViewState extends ConsumerState<MapView> {
 
     ref.read(selectedWaterBodyProvider.notifier).state = null;
     ref.read(selectedAoiProvider.notifier).state = AoiSelection(
-          label: 'Custom Alpine AOI',
-          bbox: AoiBounds(west: west, south: south, east: east, north: north),
-        );
+      label: 'Custom Alpine AOI',
+      bbox: AoiBounds(west: west, south: south, east: east, north: north),
+    );
     setState(() {
       _isAoiMode = false;
       _aoiStart = null;
@@ -497,19 +503,37 @@ class _MapViewState extends ConsumerState<MapView> {
   void _selectOetztalPreset() {
     ref.read(selectedWaterBodyProvider.notifier).state = null;
     ref.read(selectedAoiProvider.notifier).state = const AoiSelection(
-          label: 'Oetztal Alps AOI',
-          bbox: AoiBounds(
-            west: 10.75,
-            south: 46.75,
-            east: 11.35,
-            north: 47.35,
-          ),
-        );
+      label: 'Oetztal Alps AOI',
+      bbox: AoiBounds(
+        west: 10.75,
+        south: 46.75,
+        east: 11.35,
+        north: 47.35,
+      ),
+    );
     setState(() {
       _isAoiMode = false;
       _aoiStart = null;
     });
     _mapController.move(const LatLng(47.05, 11.05), 8);
+  }
+
+  void _selectInnValleyPreset() {
+    ref.read(selectedWaterBodyProvider.notifier).state = null;
+    ref.read(selectedAoiProvider.notifier).state = const AoiSelection(
+      label: 'Inn Valley AOI',
+      bbox: AoiBounds(
+        west: 11.15,
+        south: 47.15,
+        east: 11.75,
+        north: 47.55,
+      ),
+    );
+    setState(() {
+      _isAoiMode = false;
+      _aoiStart = null;
+    });
+    _mapController.move(const LatLng(47.35, 11.45), 8);
   }
 
   Polygon _buildAoiPolygon(AoiSelection selection) {
