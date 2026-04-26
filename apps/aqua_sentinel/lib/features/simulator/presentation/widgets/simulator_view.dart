@@ -7,7 +7,7 @@ import 'package:aqua_sentinel/features/simulator/presentation/widgets/what_if_ta
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import '../../data/simulator_provider.dart';
+import '../../provider/simulator_provider.dart';
 import '../../models/water_issue_scenario.dart';
 
 class SimulatorView extends ConsumerStatefulWidget {

@@ -11,7 +11,7 @@ import '../../impact/models/impact_data.dart';
 import '../../map/presentation/map_screen.dart';
 import '../providers/dashboard_globe_focus_provider.dart';
 import '../providers/dashboard_tab_provider.dart';
-import '../../monitoring/data/monitoring_provider.dart';
+import '../../monitoring/providers/monitoring_provider.dart';
 import '../../monitoring/models/environmental_analysis.dart';
 import '../../simulator/models/water_issue_scenario.dart';
 import '../../water_quality/data/water_quality_provider.dart';
