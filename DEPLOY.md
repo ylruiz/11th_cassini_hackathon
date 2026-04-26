@@ -64,6 +64,9 @@ git push origin main
 You need to create the Vercel project once to get the secrets for CI/CD.
 
 ```bash
+# Create local env from template
+cp apps/aqua_sentinel/.env.example apps/aqua_sentinel/.env
+
 # Update env with live backend URL
 echo "API_BASE_URL=https://aquasentinel-api.onrender.com" > apps/aqua_sentinel/.env
 
@@ -144,6 +147,11 @@ Both Render and Vercel will automatically redeploy the previous version.
 ---
 
 ## 🛠 Troubleshooting
+
+### `apps/aqua_sentinel/.env` missing for local development
+```bash
+cp apps/aqua_sentinel/.env.example apps/aqua_sentinel/.env
+```
 
 ### GitHub Actions fails with "No vercel credentials found"
 You forgot to add the 3 secrets (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`). Add them in GitHub repo settings.
