@@ -140,7 +140,7 @@ class _MapViewState extends ConsumerState<MapView> {
         ),
         if (selectedBody != null || selectedAoi != null)
           const SizedBox(
-            width: 400,
+            width: 460,
             child: AnalysisPanel(),
           ),
       ],
