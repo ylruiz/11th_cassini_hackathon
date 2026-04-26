@@ -464,6 +464,177 @@ class RiskEvidenceMetric {
   }
 }
 
+class Settlement {
+  final String name;
+  final double latitude;
+  final double longitude;
+  final int population;
+  final String kind;
+  final String region;
+  final double distanceKm;
+
+  const Settlement({
+    required this.name,
+    required this.latitude,
+    required this.longitude,
+    required this.population,
+    required this.kind,
+    required this.region,
+    required this.distanceKm,
+  });
+
+  factory Settlement.fromJson(Map<String, dynamic> json) {
+    return Settlement(
+      name: json['name'] as String,
+      latitude: (json['latitude'] as num).toDouble(),
+      longitude: (json['longitude'] as num).toDouble(),
+      population: (json['population'] as num).toInt(),
+      kind: json['kind'] as String,
+      region: json['region'] as String,
+      distanceKm: (json['distance_km'] as num).toDouble(),
+    );
+  }
+}
+
+class SettlementExposure {
+  final int totalSettlements;
+  final int totalPopulation;
+  final int insideAoi;
+  final int withinBuffer;
+  final double bufferKm;
+  final List<Settlement> settlements;
+
+  const SettlementExposure({
+    required this.totalSettlements,
+    required this.totalPopulation,
+    required this.insideAoi,
+    required this.withinBuffer,
+    required this.bufferKm,
+    required this.settlements,
+  });
+
+  factory SettlementExposure.fromJson(Map<String, dynamic> json) {
+    return SettlementExposure(
+      totalSettlements: (json['total_settlements'] as num).toInt(),
+      totalPopulation: (json['total_population'] as num).toInt(),
+      insideAoi: (json['inside_aoi'] as num).toInt(),
+      withinBuffer: (json['within_buffer'] as num).toInt(),
+      bufferKm: (json['buffer_km'] as num).toDouble(),
+      settlements: (json['settlements'] as List? ?? [])
+          .map((e) => Settlement.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class RiskWeights {
+  final double snow;
+  final double surfaceWater;
+  final double vegetation;
+  final double hydrology;
+
+  const RiskWeights({
+    this.snow = 1.0,
+    this.surfaceWater = 1.0,
+    this.vegetation = 1.0,
+    this.hydrology = 1.0,
+  });
+
+  static const RiskWeights defaults = RiskWeights();
+
+  bool get isDefault =>
+      (snow - 1.0).abs() < 1e-9 &&
+      (surfaceWater - 1.0).abs() < 1e-9 &&
+      (vegetation - 1.0).abs() < 1e-9 &&
+      (hydrology - 1.0).abs() < 1e-9;
+
+  RiskWeights copyWith({
+    double? snow,
+    double? surfaceWater,
+    double? vegetation,
+    double? hydrology,
+  }) {
+    return RiskWeights(
+      snow: snow ?? this.snow,
+      surfaceWater: surfaceWater ?? this.surfaceWater,
+      vegetation: vegetation ?? this.vegetation,
+      hydrology: hydrology ?? this.hydrology,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'snow': snow,
+        'surface_water': surfaceWater,
+        'vegetation': vegetation,
+        'hydrology': hydrology,
+      };
+
+  factory RiskWeights.fromJson(Map<String, dynamic> json) {
+    return RiskWeights(
+      snow: (json['snow'] as num?)?.toDouble() ?? 1.0,
+      surfaceWater: (json['surface_water'] as num?)?.toDouble() ?? 1.0,
+      vegetation: (json['vegetation'] as num?)?.toDouble() ?? 1.0,
+      hydrology: (json['hydrology'] as num?)?.toDouble() ?? 1.0,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is RiskWeights &&
+      other.snow == snow &&
+      other.surfaceWater == surfaceWater &&
+      other.vegetation == vegetation &&
+      other.hydrology == hydrology;
+
+  @override
+  int get hashCode => Object.hash(snow, surfaceWater, vegetation, hydrology);
+}
+
+class HistoryPoint {
+  final String month;
+  final double ndsiSnowFraction;
+  final double efasAnomalyPercent;
+
+  const HistoryPoint({
+    required this.month,
+    required this.ndsiSnowFraction,
+    required this.efasAnomalyPercent,
+  });
+
+  factory HistoryPoint.fromJson(Map<String, dynamic> json) {
+    return HistoryPoint(
+      month: json['month'] as String,
+      ndsiSnowFraction: (json['ndsi_snow_fraction'] as num).toDouble(),
+      efasAnomalyPercent: (json['efas_anomaly_percent'] as num).toDouble(),
+    );
+  }
+}
+
+class AoiHistory {
+  final String label;
+  final String source;
+  final String provenance;
+  final List<HistoryPoint> points;
+
+  const AoiHistory({
+    required this.label,
+    required this.source,
+    required this.provenance,
+    required this.points,
+  });
+
+  factory AoiHistory.fromJson(Map<String, dynamic> json) {
+    return AoiHistory(
+      label: json['label'] as String,
+      source: json['source'] as String,
+      provenance: json['provenance'] as String,
+      points: (json['points'] as List? ?? [])
+          .map((e) => HistoryPoint.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
 class RiskTimeline {
   final String waterBodyId;
   final String waterBodyName;
@@ -482,6 +653,8 @@ class RiskTimeline {
   final List<RiskImpact> impacts;
   final List<RiskAction> actions;
   final List<RiskEvidenceMetric> evidence;
+  final SettlementExposure? settlementExposure;
+  final RiskWeights? weights;
 
   RiskTimeline({
     required this.waterBodyId,
@@ -501,6 +674,8 @@ class RiskTimeline {
     required this.impacts,
     required this.actions,
     required this.evidence,
+    this.settlementExposure,
+    this.weights,
   });
 
   factory RiskTimeline.fromJson(Map<String, dynamic> json) {
@@ -532,6 +707,41 @@ class RiskTimeline {
       evidence: (json['evidence'] as List? ?? [])
           .map((e) => RiskEvidenceMetric.fromJson(e))
           .toList(),
+      settlementExposure: json['settlement_exposure'] == null
+          ? null
+          : SettlementExposure.fromJson(
+              json['settlement_exposure'] as Map<String, dynamic>),
+      weights: json['weights'] == null
+          ? null
+          : RiskWeights.fromJson(json['weights'] as Map<String, dynamic>),
+    );
+  }
+
+  factory RiskTimeline.empty() {
+    return RiskTimeline(
+      waterBodyId: '',
+      waterBodyName: '',
+      generatedAt: '',
+      analysisPeriodDays: 30,
+      aoiAreaKm2: 0,
+      confidenceLabel: 'Medium',
+      confidence: 'Medium',
+      methodologyNote: '',
+      observedDataSources: const [],
+      scenarioAssumptions: const [],
+      missingOperationalLayers: const [],
+      currentSignal: RiskSignal(
+        label: 'No signal',
+        value: 'N/A',
+        severity: Severity.low,
+        source: '',
+        summary: 'No data available.',
+      ),
+      drivers: const [],
+      projections: const [],
+      impacts: const [],
+      actions: const [],
+      evidence: const [],
     );
   }
 }
@@ -571,11 +781,15 @@ class AoiSelection {
   double get latitude => (bbox.south + bbox.north) / 2;
   double get longitude => (bbox.west + bbox.east) / 2;
 
-  Map<String, dynamic> toRiskTimelineRequest() {
-    return {
+  Map<String, dynamic> toRiskTimelineRequest({RiskWeights? weights}) {
+    final body = <String, dynamic>{
       'label': label,
       'bbox': bbox.toJson(),
     };
+    if (weights != null && !weights.isDefault) {
+      body['weights'] = weights.toJson();
+    }
+    return body;
   }
 }
 

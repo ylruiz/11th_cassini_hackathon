@@ -18,7 +18,7 @@ class ImpactsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (riskTimeline != null) {
-      return _RiskImpactsList(impacts: riskTimeline!.impacts);
+      return _RiskImpactsList(timeline: riskTimeline!);
     }
 
     if (analysis.ecosystemImpacts.isEmpty) {
@@ -143,12 +143,13 @@ class _ImpactCard extends StatelessWidget {
 }
 
 class _RiskImpactsList extends StatelessWidget {
-  const _RiskImpactsList({required this.impacts});
+  const _RiskImpactsList({required this.timeline});
 
-  final List<RiskImpact> impacts;
+  final RiskTimeline timeline;
 
   @override
   Widget build(BuildContext context) {
+    final exposure = timeline.settlementExposure;
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
@@ -159,8 +160,151 @@ class _RiskImpactsList extends StatelessWidget {
           color: Colors.orangeAccent,
         ),
         const SizedBox(height: 12),
-        ...impacts.map((impact) => _RiskImpactCard(impact: impact)),
+        if (exposure != null && exposure.totalSettlements > 0) ...[
+          _SettlementExposureCard(exposure: exposure),
+          const SizedBox(height: 12),
+        ],
+        ...timeline.impacts.map((impact) => _RiskImpactCard(impact: impact)),
       ],
+    );
+  }
+}
+
+class _SettlementExposureCard extends StatelessWidget {
+  const _SettlementExposureCard({required this.exposure});
+
+  final SettlementExposure exposure;
+
+  @override
+  Widget build(BuildContext context) {
+    final formattedPopulation = _formatThousands(exposure.totalPopulation);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1B2A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFF6B6B).withValues(alpha: 0.45)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const PhosphorIcon(
+                PhosphorIconsRegular.usersThree,
+                color: Color(0xFFFF6B6B),
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'POPULATION EXPOSURE',
+                  style: GoogleFonts.spaceGrotesk(
+                    color: const Color(0xFFFF6B6B),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+              Text(
+                '~$formattedPopulation residents',
+                style: GoogleFonts.spaceGrotesk(
+                  color: const Color(0xFFFF6B6B),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '${exposure.totalSettlements} settlements within ${exposure.bufferKm.toStringAsFixed(0)} km of AOI '
+            '(${exposure.insideAoi} inside, ${exposure.withinBuffer} in buffer)',
+            style: GoogleFonts.inter(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: exposure.settlements
+                .take(12)
+                .map((settlement) => _SettlementChip(settlement: settlement))
+                .toList(),
+          ),
+          if (exposure.settlements.length > 12) ...[
+            const SizedBox(height: 8),
+            Text(
+              '+${exposure.settlements.length - 12} more',
+              style: GoogleFonts.inter(color: Colors.white38, fontSize: 11),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Text(
+            'Source: curated Statistik Austria municipality cache. Replace with live cadastral / GHSL grid for production.',
+            style: GoogleFonts.inter(
+              color: Colors.white38,
+              fontSize: 10,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatThousands(int value) {
+    final str = value.toString();
+    final buffer = StringBuffer();
+    for (var i = 0; i < str.length; i++) {
+      if (i > 0 && (str.length - i) % 3 == 0) buffer.write(',');
+      buffer.write(str[i]);
+    }
+    return buffer.toString();
+  }
+}
+
+class _SettlementChip extends StatelessWidget {
+  const _SettlementChip({required this.settlement});
+
+  final Settlement settlement;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = switch (settlement.kind) {
+      'city' => const Color(0xFFFF6B6B),
+      'town' => const Color(0xFFFFB74D),
+      _ => const Color(0xFF54A0FF),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: tone.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: tone.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            settlement.name,
+            style: GoogleFonts.spaceGrotesk(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '~${(settlement.population / 1000).toStringAsFixed(settlement.population >= 10000 ? 0 : 1)}k',
+            style: GoogleFonts.inter(color: tone, fontSize: 10, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
     );
   }
 }

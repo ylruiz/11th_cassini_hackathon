@@ -44,13 +44,28 @@ final environmentalAnalysisProvider =
   }
 });
 
+final riskWeightsProvider =
+    StateProvider<RiskWeights>((ref) => RiskWeights.defaults);
+
 final riskTimelineProvider =
     FutureProvider.family<RiskTimeline?, String>((ref, waterBodyId) async {
   final dio = ref.watch(dioProvider);
+  final weights = ref.watch(riskWeightsProvider);
+
+  final query = weights.isDefault
+      ? null
+      : <String, dynamic>{
+          'weight_snow': weights.snow,
+          'weight_surface_water': weights.surfaceWater,
+          'weight_vegetation': weights.vegetation,
+          'weight_hydrology': weights.hydrology,
+        };
 
   try {
-    final response =
-        await dio.get('/api/v1/environmental/risk-timeline/$waterBodyId');
+    final response = await dio.get(
+      '/api/v1/environmental/risk-timeline/$waterBodyId',
+      queryParameters: query,
+    );
     return RiskTimeline.fromJson(response.data);
   } on DioException catch (e) {
     if (e.response?.statusCode == 404) {
@@ -63,12 +78,35 @@ final riskTimelineProvider =
 final aoiRiskTimelineProvider =
     FutureProvider.family<RiskTimeline, AoiSelection>((ref, selection) async {
   final dio = ref.watch(dioProvider);
+  final weights = ref.watch(riskWeightsProvider);
 
-  final response = await dio.post(
-    '/api/v1/environmental/risk-timeline/aoi',
-    data: selection.toRiskTimelineRequest(),
-  );
-  return RiskTimeline.fromJson(response.data);
+  try {
+    final response = await dio.post(
+      '/api/v1/environmental/risk-timeline/aoi',
+      data: selection.toRiskTimelineRequest(weights: weights),
+    );
+    return RiskTimeline.fromJson(response.data);
+  } on DioException catch (_) {
+    return RiskTimeline.empty();
+  }
+});
+
+final aoiHistoryProvider =
+    FutureProvider.family<AoiHistory?, String>((ref, label) async {
+  final dio = ref.watch(dioProvider);
+
+  try {
+    final response = await dio.get(
+      '/api/v1/environmental/risk-timeline/aoi/history',
+      queryParameters: {'label': label},
+    );
+    return AoiHistory.fromJson(response.data);
+  } on DioException catch (e) {
+    if (e.response?.statusCode == 404) {
+      return null;
+    }
+    rethrow;
+  }
 });
 
 final availableWaterBodiesProvider = FutureProvider<List<String>>((ref) async {
