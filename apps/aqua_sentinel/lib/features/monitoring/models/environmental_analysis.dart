@@ -297,6 +297,288 @@ class AreaAnalysis {
   }
 }
 
+class RiskSignal {
+  final String label;
+  final String value;
+  final Severity severity;
+  final String source;
+  final String summary;
+
+  RiskSignal({
+    required this.label,
+    required this.value,
+    required this.severity,
+    required this.source,
+    required this.summary,
+  });
+
+  factory RiskSignal.fromJson(Map<String, dynamic> json) {
+    return RiskSignal(
+      label: json['label'] as String,
+      value: json['value'] as String,
+      severity: severityFromString(json['severity'] as String),
+      source: json['source'] as String,
+      summary: json['summary'] as String,
+    );
+  }
+}
+
+class RiskDriver {
+  final String id;
+  final String label;
+  final String status;
+  final String trend;
+  final String detail;
+  final String source;
+
+  RiskDriver({
+    required this.id,
+    required this.label,
+    required this.status,
+    required this.trend,
+    required this.detail,
+    required this.source,
+  });
+
+  factory RiskDriver.fromJson(Map<String, dynamic> json) {
+    return RiskDriver(
+      id: json['id'] as String,
+      label: json['label'] as String,
+      status: json['status'] as String,
+      trend: json['trend'] as String,
+      detail: json['detail'] as String,
+      source: json['source'] as String,
+    );
+  }
+}
+
+class RiskProjection {
+  final int horizonYears;
+  final String label;
+  final Severity floodRisk;
+  final Severity landslideRisk;
+  final double dischargeChangePercent;
+  final double floodProneAreaChangePercent;
+  final String summary;
+
+  RiskProjection({
+    required this.horizonYears,
+    required this.label,
+    required this.floodRisk,
+    required this.landslideRisk,
+    required this.dischargeChangePercent,
+    required this.floodProneAreaChangePercent,
+    required this.summary,
+  });
+
+  factory RiskProjection.fromJson(Map<String, dynamic> json) {
+    return RiskProjection(
+      horizonYears: json['horizon_years'] as int,
+      label: json['label'] as String,
+      floodRisk: severityFromString(json['flood_risk'] as String),
+      landslideRisk: severityFromString(json['landslide_risk'] as String),
+      dischargeChangePercent:
+          (json['discharge_change_percent'] as num).toDouble(),
+      floodProneAreaChangePercent:
+          (json['flood_prone_area_change_percent'] as num).toDouble(),
+      summary: json['summary'] as String,
+    );
+  }
+}
+
+class RiskImpact {
+  final String category;
+  final String metric;
+  final String value;
+  final String detail;
+
+  RiskImpact({
+    required this.category,
+    required this.metric,
+    required this.value,
+    required this.detail,
+  });
+
+  factory RiskImpact.fromJson(Map<String, dynamic> json) {
+    return RiskImpact(
+      category: json['category'] as String,
+      metric: json['metric'] as String,
+      value: json['value'] as String,
+      detail: json['detail'] as String,
+    );
+  }
+}
+
+class RiskAction {
+  final String priority;
+  final String title;
+  final String timeline;
+  final String expectedEffect;
+  final String estimatedCost;
+
+  RiskAction({
+    required this.priority,
+    required this.title,
+    required this.timeline,
+    required this.expectedEffect,
+    required this.estimatedCost,
+  });
+
+  factory RiskAction.fromJson(Map<String, dynamic> json) {
+    return RiskAction(
+      priority: json['priority'] as String,
+      title: json['title'] as String,
+      timeline: json['timeline'] as String,
+      expectedEffect: json['expected_effect'] as String,
+      estimatedCost: json['estimated_cost'] as String,
+    );
+  }
+}
+
+class RiskEvidenceMetric {
+  final String label;
+  final double value;
+  final String unit;
+  final double fraction;
+  final String interpretation;
+  final String source;
+
+  RiskEvidenceMetric({
+    required this.label,
+    required this.value,
+    required this.unit,
+    required this.fraction,
+    required this.interpretation,
+    required this.source,
+  });
+
+  factory RiskEvidenceMetric.fromJson(Map<String, dynamic> json) {
+    return RiskEvidenceMetric(
+      label: json['label'] as String,
+      value: (json['value'] as num).toDouble(),
+      unit: json['unit'] as String,
+      fraction: (json['fraction'] as num).toDouble(),
+      interpretation: json['interpretation'] as String,
+      source: json['source'] as String,
+    );
+  }
+}
+
+class RiskTimeline {
+  final String waterBodyId;
+  final String waterBodyName;
+  final String generatedAt;
+  final int analysisPeriodDays;
+  final double aoiAreaKm2;
+  final String confidenceLabel;
+  final String confidence;
+  final String methodologyNote;
+  final List<String> observedDataSources;
+  final List<String> scenarioAssumptions;
+  final List<String> missingOperationalLayers;
+  final RiskSignal currentSignal;
+  final List<RiskDriver> drivers;
+  final List<RiskProjection> projections;
+  final List<RiskImpact> impacts;
+  final List<RiskAction> actions;
+  final List<RiskEvidenceMetric> evidence;
+
+  RiskTimeline({
+    required this.waterBodyId,
+    required this.waterBodyName,
+    required this.generatedAt,
+    required this.analysisPeriodDays,
+    required this.aoiAreaKm2,
+    required this.confidenceLabel,
+    required this.confidence,
+    required this.methodologyNote,
+    required this.observedDataSources,
+    required this.scenarioAssumptions,
+    required this.missingOperationalLayers,
+    required this.currentSignal,
+    required this.drivers,
+    required this.projections,
+    required this.impacts,
+    required this.actions,
+    required this.evidence,
+  });
+
+  factory RiskTimeline.fromJson(Map<String, dynamic> json) {
+    return RiskTimeline(
+      waterBodyId: json['water_body_id'] as String,
+      waterBodyName: json['water_body_name'] as String,
+      generatedAt: json['generated_at'] as String,
+      analysisPeriodDays: json['analysis_period_days'] as int? ?? 30,
+      aoiAreaKm2: (json['aoi_area_km2'] as num?)?.toDouble() ?? 0,
+      confidenceLabel: json['confidence_label'] as String? ?? 'Medium',
+      confidence: json['confidence'] as String,
+      methodologyNote: json['methodology_note'] as String? ?? '',
+      observedDataSources:
+          List<String>.from(json['observed_data_sources'] ?? []),
+      scenarioAssumptions:
+          List<String>.from(json['scenario_assumptions'] ?? []),
+      missingOperationalLayers:
+          List<String>.from(json['missing_operational_layers'] ?? []),
+      currentSignal: RiskSignal.fromJson(json['current_signal']),
+      drivers:
+          (json['drivers'] as List).map((e) => RiskDriver.fromJson(e)).toList(),
+      projections: (json['projections'] as List)
+          .map((e) => RiskProjection.fromJson(e))
+          .toList(),
+      impacts:
+          (json['impacts'] as List).map((e) => RiskImpact.fromJson(e)).toList(),
+      actions:
+          (json['actions'] as List).map((e) => RiskAction.fromJson(e)).toList(),
+      evidence: (json['evidence'] as List? ?? [])
+          .map((e) => RiskEvidenceMetric.fromJson(e))
+          .toList(),
+    );
+  }
+}
+
+class AoiBounds {
+  final double west;
+  final double south;
+  final double east;
+  final double north;
+
+  const AoiBounds({
+    required this.west,
+    required this.south,
+    required this.east,
+    required this.north,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'west': west,
+      'south': south,
+      'east': east,
+      'north': north,
+    };
+  }
+}
+
+class AoiSelection {
+  final String label;
+  final AoiBounds bbox;
+
+  const AoiSelection({
+    required this.label,
+    required this.bbox,
+  });
+
+  double get latitude => (bbox.south + bbox.north) / 2;
+  double get longitude => (bbox.west + bbox.east) / 2;
+
+  Map<String, dynamic> toRiskTimelineRequest() {
+    return {
+      'label': label,
+      'bbox': bbox.toJson(),
+    };
+  }
+}
+
 class WaterBodyInfo {
   final String id;
   final String name;
@@ -310,6 +592,47 @@ class WaterBodyInfo {
     required this.longitude,
   });
 }
+
+class MountainRangeInfo {
+  final String id;
+  final String name;
+  final double latitude;
+  final double longitude;
+
+  const MountainRangeInfo({
+    required this.id,
+    required this.name,
+    required this.latitude,
+    required this.longitude,
+  });
+}
+
+const mountainRanges = [
+  MountainRangeInfo(
+    id: 'alps',
+    name: 'Alps',
+    latitude: 46.5,
+    longitude: 10.0,
+  ),
+  MountainRangeInfo(
+    id: 'himalayas',
+    name: 'Himalayas',
+    latitude: 28.0,
+    longitude: 84.0,
+  ),
+  MountainRangeInfo(
+    id: 'rocky-mountains',
+    name: 'Rocky Mountains',
+    latitude: 44.0,
+    longitude: -110.0,
+  ),
+  MountainRangeInfo(
+    id: 'andes',
+    name: 'Andes',
+    latitude: -32.0,
+    longitude: -70.0,
+  ),
+];
 
 const waterBodies = [
   WaterBodyInfo(

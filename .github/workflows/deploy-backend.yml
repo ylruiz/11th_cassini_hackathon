@@ -1,0 +1,21 @@
+name: CI/CD — Deploy Backend to Render
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render Deploy Hook
+        run: |
+          echo "🚀 Triggering Render backend deploy..."
+          curl -sf -X POST "${RENDER_DEPLOY_HOOK}" \
+            -H "Accept: application/json" \
+            --max-time 30 \
+            && echo "Deploy triggered successfully" \
+            || (echo "❌ Failed to trigger deploy"; exit 1)
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}

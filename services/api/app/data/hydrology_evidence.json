@@ -1,0 +1,24 @@
+{
+  "inn-river": {
+    "label": "Inn River corridor",
+    "source": "CDS seasonal hydrology forecast, Lisflood-EFAS river_discharge; prepared cache from python_analysis workflow",
+    "provenance": "Demo cache derived from the CDS notebook/script workflow. Use as hydrology context until automated CDS refresh is added.",
+    "analysis_month": "June seasonal forecast window",
+    "forecast_horizon_months": 3,
+    "discharge_anomaly_percent": 18.0,
+    "return_period_signal": "Above-normal seasonal discharge context",
+    "confidence": "Medium",
+    "matched_labels": ["Inn River", "Inn Valley AOI"]
+  },
+  "oetztal-alps": {
+    "label": "Oetztal Alps tributary catchments",
+    "source": "CDS seasonal hydrology forecast, Lisflood-EFAS river_discharge; prepared cache from python_analysis workflow",
+    "provenance": "Demo cache derived from the CDS notebook/script workflow. Use as hydrology context until automated CDS refresh is added.",
+    "analysis_month": "June seasonal forecast window",
+    "forecast_horizon_months": 3,
+    "discharge_anomaly_percent": 12.0,
+    "return_period_signal": "Moderately above-normal seasonal discharge context",
+    "confidence": "Medium",
+    "matched_labels": ["Oetztal Alps AOI"]
+  }
+}

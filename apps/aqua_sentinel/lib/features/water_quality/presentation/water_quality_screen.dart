@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
-import '../../impact/data/impact_provider.dart';
+import '../../impact/providers/impact_provider.dart';
 import '../../impact/models/impact_data.dart';
 import '../data/water_quality_provider.dart';
 import '../models/water_quality_data.dart';
@@ -150,9 +150,8 @@ class _BodySelector extends ConsumerWidget {
           final color = _tierColor(score.tier);
 
           return GestureDetector(
-            onTap: () => ref
-                .read(selectedQualityBodyProvider.notifier)
-                .state = score.waterBodyId,
+            onTap: () => ref.read(selectedQualityBodyProvider.notifier).state =
+                score.waterBodyId,
             child: AnimatedContainer(
               duration: 200.ms,
               margin: const EdgeInsets.only(right: 8),
@@ -182,9 +181,8 @@ class _BodySelector extends ConsumerWidget {
                     style: GoogleFonts.inter(
                       color: isSelected ? Colors.white : Colors.white54,
                       fontSize: 11,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.w400,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w400,
                     ),
                   ),
                   const SizedBox(width: 5),
@@ -308,8 +306,7 @@ class _OverallStatusCard extends ConsumerWidget {
                 const SizedBox(width: 5),
                 Text(
                   data.monthDeltaLabel,
-                  style:
-                      GoogleFonts.inter(color: Colors.white38, fontSize: 11),
+                  style: GoogleFonts.inter(color: Colors.white38, fontSize: 11),
                 ),
               ],
             ),
@@ -317,16 +314,14 @@ class _OverallStatusCard extends ConsumerWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Icon(PhosphorIconsRegular.users,
-                  color: Colors.white30, size: 12),
+              Icon(PhosphorIconsRegular.users, color: Colors.white30, size: 12),
               const SizedBox(width: 5),
               Text(
                 '${_formatPop(score.populationAtRisk)} people at risk',
                 style: GoogleFonts.inter(color: Colors.white38, fontSize: 11),
               ),
               const SizedBox(width: 16),
-              Icon(PhosphorIconsRegular.clock,
-                  color: Colors.white30, size: 12),
+              Icon(PhosphorIconsRegular.clock, color: Colors.white30, size: 12),
               const SizedBox(width: 5),
               Text(
                 score.lastUpdated,
@@ -447,13 +442,12 @@ class _IndicatorCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
                   color: _statusColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(
-                      color: _statusColor.withValues(alpha: 0.4)),
+                  border:
+                      Border.all(color: _statusColor.withValues(alpha: 0.4)),
                 ),
                 child: Text(
                   _statusLabel,
@@ -497,8 +491,7 @@ class _IndicatorCard extends StatelessWidget {
                 ],
               ),
             if (indicator.trendLabel != null) ...[
-              if (indicator.affectedGroups != null)
-                const SizedBox(height: 3),
+              if (indicator.affectedGroups != null) const SizedBox(height: 3),
               Row(
                 children: [
                   const Icon(PhosphorIconsRegular.arrowUp,
@@ -506,8 +499,8 @@ class _IndicatorCard extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     indicator.trendLabel!,
-                    style: GoogleFonts.inter(
-                        color: Colors.white30, fontSize: 10),
+                    style:
+                        GoogleFonts.inter(color: Colors.white30, fontSize: 10),
                   ),
                 ],
               ),
@@ -574,8 +567,7 @@ class _SectorImpactCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
                   color: _statusColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(4),
@@ -700,8 +692,7 @@ class _PollutionEventCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(PhosphorIconsRegular.mapPin,
-                  color: _statusColor, size: 12),
+              Icon(PhosphorIconsRegular.mapPin, color: _statusColor, size: 12),
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
@@ -744,8 +735,7 @@ class _PollutionEventCard extends StatelessWidget {
           if (event.recommendedAction != null) ...[
             const SizedBox(height: 8),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color(0xFF00D4FF).withValues(alpha: 0.07),
                 borderRadius: BorderRadius.circular(7),

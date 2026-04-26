@@ -18,7 +18,7 @@ class ImpactTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(PhosphorIconsRegular.checkCircle,
+          const Icon(PhosphorIconsRegular.checkCircle,
               color: Colors.greenAccent, size: 16),
           const SizedBox(width: 10),
           Expanded(

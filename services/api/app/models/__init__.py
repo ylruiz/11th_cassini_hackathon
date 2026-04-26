@@ -7,6 +7,15 @@ from .environmental_analysis import (
     PreventionMeasure,
     EcosystemImpact,
     AreaAnalysis,
+    RiskAction,
+    RiskDriver,
+    RiskEvidenceMetric,
+    RiskImpact,
+    RiskProjection,
+    RiskSignal,
+    RiskTimeline,
+    AoiBounds,
+    AoiRiskTimelineRequest,
 )
 
 __all__ = [
@@ -18,4 +27,13 @@ __all__ = [
     "PreventionMeasure",
     "EcosystemImpact",
     "AreaAnalysis",
+    "RiskAction",
+    "RiskDriver",
+    "RiskEvidenceMetric",
+    "RiskImpact",
+    "RiskProjection",
+    "RiskSignal",
+    "RiskTimeline",
+    "AoiBounds",
+    "AoiRiskTimelineRequest",
 ]
