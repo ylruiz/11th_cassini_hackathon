@@ -20,6 +20,10 @@ jobs:
         working-directory: apps/aqua_sentinel
         run: flutter pub get
 
+      - name: Generate code (build_runner)
+        working-directory: apps/aqua_sentinel
+        run: dart run build_runner build --delete-conflicting-outputs
+
       - name: Set production API URL
         working-directory: apps/aqua_sentinel
         run: |
