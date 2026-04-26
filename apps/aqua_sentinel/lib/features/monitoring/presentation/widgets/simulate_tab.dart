@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/environmental_analysis.dart';
-import '../../../simulator/presentation/widgets/simulator_view.dart';
 import 'analysis_shared.dart';
 
 class SimulateTab extends StatelessWidget {
@@ -14,61 +13,115 @@ class SimulateTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final timeline = riskTimeline;
     if (timeline == null) {
-      return const SimulatorView();
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Future risk timeline is available for Inn River in this MVP.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
+          ),
+        ),
+      );
     }
 
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
-        _TimelineConfidenceCard(confidence: timeline.confidence),
+        _HydrologyContextCard(evidence: timeline.evidence),
         const SizedBox(height: 12),
-        _ProjectionOverviewCard(projections: timeline.projections),
+        _ScenarioTimelineCard(projections: timeline.projections),
         const SizedBox(height: 12),
-        ...timeline.projections.map((projection) {
-          return _RiskProjectionCard(projection: projection);
-        }),
+        const _ScenarioCaveatCard(),
       ],
     );
   }
 }
 
-class _TimelineConfidenceCard extends StatelessWidget {
-  const _TimelineConfidenceCard({required this.confidence});
+class _HydrologyContextCard extends StatelessWidget {
+  const _HydrologyContextCard({required this.evidence});
 
-  final String confidence;
+  final List<RiskEvidenceMetric> evidence;
 
   @override
   Widget build(BuildContext context) {
+    final hydrologyEvidence = evidence.where((metric) {
+      final text = '${metric.label} ${metric.source}'.toLowerCase();
+      return text.contains('efas') || text.contains('lisflood');
+    }).toList();
+
+    if (hydrologyEvidence.isEmpty) {
+      return const TabIntroCard(
+        title: 'Hydrology forecast context',
+        body:
+            'EFAS/Lisflood is not connected for this AOI yet. Scenario pressure uses satellite evidence and stress assumptions.',
+        color: Colors.orangeAccent,
+      );
+    }
+
+    final metric = hydrologyEvidence.first;
+    final valueText = metric.unit.isEmpty
+        ? metric.value.toStringAsFixed(2)
+        : '${metric.value.toStringAsFixed(1)}${metric.unit}';
+
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFF081525),
         borderRadius: BorderRadius.circular(12),
-        border:
-            Border.all(color: const Color(0xFF00D4FF).withValues(alpha: 0.3)),
+        border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.3)),
       ),
-      child: Text(
-        confidence,
-        style: GoogleFonts.inter(
-          color: Colors.white70,
-          fontSize: 12,
-          height: 1.5,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'HYDROLOGY CONTEXT',
+                  style: GoogleFonts.spaceGrotesk(
+                    color: Colors.greenAccent,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+              Text(
+                valueText,
+                style: GoogleFonts.spaceGrotesk(
+                  color: Colors.greenAccent,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Cached EFAS/Lisflood seasonal discharge anomaly. Used as context, not a live warning.',
+            style: GoogleFonts.inter(
+              color: Colors.white54,
+              fontSize: 10,
+              height: 1.35,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ProjectionOverviewCard extends StatelessWidget {
-  const _ProjectionOverviewCard({required this.projections});
+class _ScenarioTimelineCard extends StatelessWidget {
+  const _ScenarioTimelineCard({required this.projections});
 
   final List<RiskProjection> projections;
 
   @override
   Widget build(BuildContext context) {
-    final maxDischarge = projections
-        .map((p) => p.dischargeChangePercent)
-        .fold<double>(1, (max, value) => value > max ? value : max);
+    final futureProjections = projections
+        .where((projection) => projection.horizonYears > 0)
+        .toList(growable: false);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -82,7 +135,7 @@ class _ProjectionOverviewCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'SCENARIO CURVE',
+            'SCENARIO TIMELINE',
             style: GoogleFonts.spaceGrotesk(
               color: const Color(0xFF00D4FF),
               fontSize: 10,
@@ -91,54 +144,102 @@ class _ProjectionOverviewCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          ...projections.map((projection) {
-            final value = projection.dischargeChangePercent / maxDischarge;
-            final color = severityColor(projection.floodRisk);
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 58,
-                    child: Text(
-                      projection.label,
-                      style: GoogleFonts.inter(
-                        color: Colors.white54,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                        value: value.clamp(0.0, 1.0),
-                        minHeight: 8,
-                        backgroundColor: Colors.white.withValues(alpha: 0.08),
-                        valueColor: AlwaysStoppedAnimation<Color>(color),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 44,
-                    child: Text(
-                      '+${projection.dischargeChangePercent.toStringAsFixed(0)}%',
-                      textAlign: TextAlign.right,
-                      style: GoogleFonts.spaceGrotesk(
-                        color: color,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
+          const _ScenarioHeaderRow(),
+          const SizedBox(height: 8),
+          ...futureProjections.map((projection) {
+            return _ScenarioTimelineRow(projection: projection);
           }),
-          Text(
-            'Bars show a scenario pressure index scaled from current multi-sensor evidence; they are not calibrated discharge forecasts yet.',
-            style: GoogleFonts.inter(color: Colors.white38, fontSize: 9),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScenarioHeaderRow extends StatelessWidget {
+  const _ScenarioHeaderRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      children: [
+        _ScenarioHeaderCell(label: 'Year', flex: 2),
+        _ScenarioHeaderCell(label: 'Flood'),
+        _ScenarioHeaderCell(label: 'Slope'),
+        _ScenarioHeaderCell(label: 'Runoff'),
+        _ScenarioHeaderCell(label: 'Inund.'),
+      ],
+    );
+  }
+}
+
+class _ScenarioHeaderCell extends StatelessWidget {
+  const _ScenarioHeaderCell({required this.label, this.flex = 1});
+
+  final String label;
+  final int flex;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        label,
+        style: GoogleFonts.inter(
+          color: Colors.white38,
+          fontSize: 9,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _ScenarioTimelineRow extends StatelessWidget {
+  const _ScenarioTimelineRow({required this.projection});
+
+  final RiskProjection projection;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1B2A),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: severityColor(projection.floodRisk).withValues(alpha: 0.22),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              projection.label,
+              style: GoogleFonts.spaceGrotesk(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          _ScenarioValue(
+            value: projection.floodRisk.displayName,
+            color: severityColor(projection.floodRisk),
+          ),
+          _ScenarioValue(
+            value: projection.landslideRisk.displayName,
+            color: severityColor(projection.landslideRisk),
+          ),
+          _ScenarioValue(
+            value: '+${projection.dischargeChangePercent.toStringAsFixed(0)}%',
+            color: const Color(0xFF00D4FF),
+          ),
+          _ScenarioValue(
+            value:
+                '+${projection.floodProneAreaChangePercent.toStringAsFixed(0)}%',
+            color: Colors.orangeAccent,
           ),
         ],
       ),
@@ -146,87 +247,40 @@ class _ProjectionOverviewCard extends StatelessWidget {
   }
 }
 
-class _RiskProjectionCard extends StatelessWidget {
-  const _RiskProjectionCard({required this.projection});
+class _ScenarioValue extends StatelessWidget {
+  const _ScenarioValue({required this.value, required this.color});
 
-  final RiskProjection projection;
+  final String value;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final floodColor = severityColor(projection.floodRisk);
-    final landslideColor = severityColor(projection.landslideRisk);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D1B2A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: floodColor.withValues(alpha: 0.3)),
+    return Expanded(
+      child: Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.spaceGrotesk(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            projection.label,
-            style: GoogleFonts.spaceGrotesk(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: ProjectionMetric(
-                  label: 'Flood risk',
-                  value: projection.floodRisk.displayName,
-                  color: floodColor,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ProjectionMetric(
-                  label: 'Landslide risk',
-                  value: projection.landslideRisk.displayName,
-                  color: landslideColor,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: ProjectionMetric(
-                  label: 'Runoff pressure',
-                  value:
-                      '+${projection.dischargeChangePercent.toStringAsFixed(0)}%',
-                  color: const Color(0xFF00D4FF),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ProjectionMetric(
-                  label: 'Inundation pressure',
-                  value:
-                      '+${projection.floodProneAreaChangePercent.toStringAsFixed(0)}%',
-                  color: Colors.orangeAccent,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            projection.summary,
-            style: GoogleFonts.inter(
-              color: Colors.white70,
-              fontSize: 12,
-              height: 1.5,
-            ),
-          ),
-        ],
+    );
+  }
+}
+
+class _ScenarioCaveatCard extends StatelessWidget {
+  const _ScenarioCaveatCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      'Scenario pressure, not an official forecast. Uses Sentinel evidence plus cached EFAS context where available.',
+      style: GoogleFonts.inter(
+        color: Colors.white38,
+        fontSize: 10,
+        height: 1.35,
       ),
     );
   }

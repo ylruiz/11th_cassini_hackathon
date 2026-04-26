@@ -468,7 +468,14 @@ class RiskTimeline {
   final String waterBodyId;
   final String waterBodyName;
   final String generatedAt;
+  final int analysisPeriodDays;
+  final double aoiAreaKm2;
+  final String confidenceLabel;
   final String confidence;
+  final String methodologyNote;
+  final List<String> observedDataSources;
+  final List<String> scenarioAssumptions;
+  final List<String> missingOperationalLayers;
   final RiskSignal currentSignal;
   final List<RiskDriver> drivers;
   final List<RiskProjection> projections;
@@ -480,7 +487,14 @@ class RiskTimeline {
     required this.waterBodyId,
     required this.waterBodyName,
     required this.generatedAt,
+    required this.analysisPeriodDays,
+    required this.aoiAreaKm2,
+    required this.confidenceLabel,
     required this.confidence,
+    required this.methodologyNote,
+    required this.observedDataSources,
+    required this.scenarioAssumptions,
+    required this.missingOperationalLayers,
     required this.currentSignal,
     required this.drivers,
     required this.projections,
@@ -494,11 +508,20 @@ class RiskTimeline {
       waterBodyId: json['water_body_id'] as String,
       waterBodyName: json['water_body_name'] as String,
       generatedAt: json['generated_at'] as String,
+      analysisPeriodDays: json['analysis_period_days'] as int? ?? 30,
+      aoiAreaKm2: (json['aoi_area_km2'] as num?)?.toDouble() ?? 0,
+      confidenceLabel: json['confidence_label'] as String? ?? 'Medium',
       confidence: json['confidence'] as String,
+      methodologyNote: json['methodology_note'] as String? ?? '',
+      observedDataSources:
+          List<String>.from(json['observed_data_sources'] ?? []),
+      scenarioAssumptions:
+          List<String>.from(json['scenario_assumptions'] ?? []),
+      missingOperationalLayers:
+          List<String>.from(json['missing_operational_layers'] ?? []),
       currentSignal: RiskSignal.fromJson(json['current_signal']),
-      drivers: (json['drivers'] as List)
-          .map((e) => RiskDriver.fromJson(e))
-          .toList(),
+      drivers:
+          (json['drivers'] as List).map((e) => RiskDriver.fromJson(e)).toList(),
       projections: (json['projections'] as List)
           .map((e) => RiskProjection.fromJson(e))
           .toList(),

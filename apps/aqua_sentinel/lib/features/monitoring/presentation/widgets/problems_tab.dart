@@ -21,6 +21,8 @@ class ProblemsTab extends StatelessWidget {
       return ListView(
         padding: const EdgeInsets.all(12),
         children: [
+          TrustSummaryCard(timeline: riskTimeline!),
+          const SizedBox(height: 12),
           CurrentSignalCard(timeline: riskTimeline!),
         ],
       );
@@ -317,6 +319,178 @@ class _RiskDriverCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class TrustSummaryCard extends StatelessWidget {
+  const TrustSummaryCard({super.key, required this.timeline});
+
+  final RiskTimeline timeline;
+
+  @override
+  Widget build(BuildContext context) {
+    const color = Color(0xFF00D4FF);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF081525),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'EVIDENCE VS SCENARIO',
+                  style: GoogleFonts.spaceGrotesk(
+                    color: color,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+              SmallPill(label: timeline.confidenceLabel, color: color),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _TrustMetric(
+                  label: 'AOI',
+                  value: '${timeline.aoiAreaKm2.toStringAsFixed(0)} km2',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TrustMetric(
+                  label: 'Period',
+                  value: '${timeline.analysisPeriodDays} days',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (timeline.methodologyNote.isNotEmpty)
+            MethodNote(text: timeline.methodologyNote, color: color),
+          const SizedBox(height: 10),
+          _TrustList(
+            title: 'Observed',
+            items: timeline.observedDataSources,
+            color: Colors.greenAccent,
+          ),
+          const SizedBox(height: 8),
+          _TrustList(
+            title: 'Scenario',
+            items: timeline.scenarioAssumptions,
+            color: Colors.orangeAccent,
+          ),
+          const SizedBox(height: 8),
+          _TrustList(
+            title: 'Missing for operations',
+            items: timeline.missingOperationalLayers,
+            color: const Color(0xFFFF6B6B),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrustMetric extends StatelessWidget {
+  const _TrustMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.inter(color: Colors.white38, fontSize: 9),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: GoogleFonts.spaceGrotesk(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrustList extends StatelessWidget {
+  const _TrustList({
+    required this.title,
+    required this.items,
+    required this.color,
+  });
+
+  final String title;
+  final List<String> items;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: GoogleFonts.spaceGrotesk(
+            color: color,
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 4),
+        ...items.take(3).map((item) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 3),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('- ', style: TextStyle(color: color, fontSize: 10)),
+                Expanded(
+                  child: Text(
+                    item,
+                    style: GoogleFonts.inter(
+                      color: Colors.white54,
+                      fontSize: 10,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
     );
   }
 }

@@ -9,7 +9,6 @@ import 'package:latlong2/latlong.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../alerts/providers/alarms_provider.dart';
-import '../../alerts/models/alarm_model.dart';
 import '../../monitoring/providers/monitoring_provider.dart';
 import '../../monitoring/models/environmental_analysis.dart';
 import '../../monitoring/presentation/analysis_panel.dart';
@@ -42,7 +41,6 @@ class MapView extends ConsumerStatefulWidget {
 
 class _MapViewState extends ConsumerState<MapView> {
   final MapController _mapController = MapController();
-  Alarm? _selectedAlarm;
   bool _isAoiMode = false;
   LatLng? _aoiStart;
 
@@ -64,13 +62,6 @@ class _MapViewState extends ConsumerState<MapView> {
 
     ref.listen<String?>(selectedAlarmIdProvider, (_, alarmId) {
       if (alarmId != null) {
-        final alarms = ref.read(activeAlarmsProvider);
-        final matches = alarms.where((a) => a.id == alarmId).toList();
-        if (matches.isNotEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _selectedAlarm = matches.first);
-          });
-        }
         ref.read(selectedAlarmIdProvider.notifier).state = null;
       }
     });
@@ -140,7 +131,7 @@ class _MapViewState extends ConsumerState<MapView> {
                         ],
                       ),
                     ),
-                    Footer(),
+                    const Footer(),
                   ],
                 ),
               ),
@@ -201,6 +192,13 @@ class _MapViewState extends ConsumerState<MapView> {
             icon: PhosphorIconsRegular.mountains,
             isActive: selectedAoi?.label == 'Oetztal Alps AOI',
             onTap: _selectOetztalPreset,
+          ),
+          const SizedBox(width: 8),
+          ToolbarButton(
+            label: 'INN VALLEY',
+            icon: PhosphorIconsRegular.mapPin,
+            isActive: selectedAoi?.label == 'Inn Valley AOI',
+            onTap: _selectInnValleyPreset,
           ),
           const SizedBox(width: 8),
           ToolbarButton(
@@ -334,6 +332,24 @@ class _MapViewState extends ConsumerState<MapView> {
       _aoiStart = null;
     });
     _mapController.move(const LatLng(47.05, 11.05), 8);
+  }
+
+  void _selectInnValleyPreset() {
+    ref.read(selectedWaterBodyProvider.notifier).state = null;
+    ref.read(selectedAoiProvider.notifier).state = const AoiSelection(
+      label: 'Inn Valley AOI',
+      bbox: AoiBounds(
+        west: 11.15,
+        south: 47.15,
+        east: 11.75,
+        north: 47.55,
+      ),
+    );
+    setState(() {
+      _isAoiMode = false;
+      _aoiStart = null;
+    });
+    _mapController.move(const LatLng(47.35, 11.45), 8);
   }
 
   Polygon _buildAoiPolygon(AoiSelection selection) {

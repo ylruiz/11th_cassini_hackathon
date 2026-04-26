@@ -126,7 +126,14 @@ class RiskTimeline(BaseModel):
     water_body_id: str
     water_body_name: str
     generated_at: str
+    analysis_period_days: int
+    aoi_area_km2: float
+    confidence_label: str
     confidence: str
+    methodology_note: str
+    observed_data_sources: list[str]
+    scenario_assumptions: list[str]
+    missing_operational_layers: list[str]
     current_signal: RiskSignal
     drivers: list[RiskDriver]
     projections: list[RiskProjection]
