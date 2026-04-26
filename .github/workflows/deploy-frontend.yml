@@ -27,7 +27,7 @@ jobs:
       - name: Set production API URL
         working-directory: apps/aqua_sentinel
         run: |
-          echo "API_BASE_URL=https://aquasentinel-api.onrender.com" > .env
+          echo "API_BASE_URL=https://one1th-cassini-hackathon.onrender.com" > .env
           echo "COPERNICUS_WMS_URL=https://maps.googleapis.com/maps/api" >> .env
 
       - name: Build Flutter web
