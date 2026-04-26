@@ -40,6 +40,7 @@ class _GlobeHeroState extends ConsumerState<GlobeHero> {
     widget.controller.setCameraFocus(45.0, 15.0);
     widget.controller.setZoom(1.8);
     _addWaterBodyNodes();
+    _addMountainNodes();
   }
 
   void _addWaterBodyNodes() {
@@ -81,6 +82,60 @@ class _GlobeHeroState extends ConsumerState<GlobeHero> {
                   PhosphorIconsRegular.drop,
                   color: Color(0xFF00D4FF),
                   size: 16,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+    }
+  }
+
+  void _addMountainNodes() {
+    for (final mountain in mountainRanges) {
+      widget.controller.addNode(EarthNode(
+        id: 'mt-${mountain.id}',
+        latitude: mountain.latitude,
+        longitude: mountain.longitude,
+        child: GestureDetector(
+          onTap: () {
+            ref.read(mapNavigationProvider.notifier).state = LatLng(
+              mountain.latitude,
+              mountain.longitude,
+            );
+            widget.onNavigateToMap();
+          },
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: Tooltip(
+              message: mountain.name,
+              textStyle:
+                  GoogleFonts.spaceGrotesk(color: Colors.white, fontSize: 11),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0D1B2A),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                    color: const Color(0xFFFF9F43).withValues(alpha: 0.4)),
+              ),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D1B2A),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFFF9F43), width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF9F43).withValues(alpha: 0.5),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  PhosphorIconsRegular.mountains,
+                  color: Color(0xFFFF9F43),
+                  size: 18,
                 ),
               ),
             ),

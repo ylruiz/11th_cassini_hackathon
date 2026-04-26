@@ -72,18 +72,13 @@ class DashboardSidebar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       child: Row(
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: const Color(0xFF00D4FF).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                  color: const Color(0xFF00D4FF).withValues(alpha: 0.4),
-                  width: 1),
+          ClipOval(
+            child: Image.asset(
+              'assets/logo.png',
+              width: 32,
+              height: 32,
+              fit: BoxFit.cover,
             ),
-            child: const Icon(PhosphorIconsRegular.drop,
-                color: Color(0xFF00D4FF), size: 18),
           ),
           if (expanded) ...[
             const SizedBox(width: 10),
