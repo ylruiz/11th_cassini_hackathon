@@ -80,11 +80,15 @@ final aoiRiskTimelineProvider =
   final dio = ref.watch(dioProvider);
   final weights = ref.watch(riskWeightsProvider);
 
-  final response = await dio.post(
-    '/api/v1/environmental/risk-timeline/aoi',
-    data: selection.toRiskTimelineRequest(weights: weights),
-  );
-  return RiskTimeline.fromJson(response.data);
+  try {
+    final response = await dio.post(
+      '/api/v1/environmental/risk-timeline/aoi',
+      data: selection.toRiskTimelineRequest(weights: weights),
+    );
+    return RiskTimeline.fromJson(response.data);
+  } on DioException catch (_) {
+    return RiskTimeline.empty();
+  }
 });
 
 final aoiHistoryProvider =

@@ -716,6 +716,34 @@ class RiskTimeline {
           : RiskWeights.fromJson(json['weights'] as Map<String, dynamic>),
     );
   }
+
+  factory RiskTimeline.empty() {
+    return RiskTimeline(
+      waterBodyId: '',
+      waterBodyName: '',
+      generatedAt: '',
+      analysisPeriodDays: 30,
+      aoiAreaKm2: 0,
+      confidenceLabel: 'Medium',
+      confidence: 'Medium',
+      methodologyNote: '',
+      observedDataSources: const [],
+      scenarioAssumptions: const [],
+      missingOperationalLayers: const [],
+      currentSignal: RiskSignal(
+        label: 'No signal',
+        value: 'N/A',
+        severity: Severity.low,
+        source: '',
+        summary: 'No data available.',
+      ),
+      drivers: const [],
+      projections: const [],
+      impacts: const [],
+      actions: const [],
+      evidence: const [],
+    );
+  }
 }
 
 class AoiBounds {
@@ -778,6 +806,47 @@ class WaterBodyInfo {
     required this.longitude,
   });
 }
+
+class MountainRangeInfo {
+  final String id;
+  final String name;
+  final double latitude;
+  final double longitude;
+
+  const MountainRangeInfo({
+    required this.id,
+    required this.name,
+    required this.latitude,
+    required this.longitude,
+  });
+}
+
+const mountainRanges = [
+  MountainRangeInfo(
+    id: 'alps',
+    name: 'Alps',
+    latitude: 46.5,
+    longitude: 10.0,
+  ),
+  MountainRangeInfo(
+    id: 'himalayas',
+    name: 'Himalayas',
+    latitude: 28.0,
+    longitude: 84.0,
+  ),
+  MountainRangeInfo(
+    id: 'rocky-mountains',
+    name: 'Rocky Mountains',
+    latitude: 44.0,
+    longitude: -110.0,
+  ),
+  MountainRangeInfo(
+    id: 'andes',
+    name: 'Andes',
+    latitude: -32.0,
+    longitude: -70.0,
+  ),
+];
 
 const waterBodies = [
   WaterBodyInfo(

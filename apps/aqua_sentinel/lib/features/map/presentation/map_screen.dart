@@ -115,6 +115,11 @@ class _MapViewState extends ConsumerState<MapView> {
                                     .map(_buildWaterBodyMarker)
                                     .toList(),
                               ),
+                              MarkerLayer(
+                                markers: mountainRanges
+                                    .map(_buildMountainMarker)
+                                    .toList(),
+                              ),
                               if (selectedAoi != null)
                                 PolygonLayer(
                                   polygons: [_buildAoiPolygon(selectedAoi)],
@@ -268,6 +273,52 @@ class _MapViewState extends ConsumerState<MapView> {
     );
   }
 
+  Marker _buildMountainMarker(MountainRangeInfo mountain) {
+    return Marker(
+      point: LatLng(mountain.latitude, mountain.longitude),
+      width: 44,
+      height: 44,
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _isAoiMode = false;
+            _aoiStart = null;
+          });
+          ref.read(selectedWaterBodyProvider.notifier).state = null;
+          ref.read(selectedAoiProvider.notifier).state = AoiSelection(
+            label: mountain.name,
+            bbox: AoiBounds(
+              west: mountain.longitude - 0.5,
+              south: mountain.latitude - 0.5,
+              east: mountain.longitude + 0.5,
+              north: mountain.latitude + 0.5,
+            ),
+          );
+          _mapController.move(LatLng(mountain.latitude, mountain.longitude), 6);
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D1B2A),
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFFFF9F43), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFF9F43).withValues(alpha: 0.5),
+                blurRadius: 10,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: const Icon(
+            PhosphorIconsRegular.mountains,
+            color: Color(0xFFFF9F43),
+            size: 20,
+          ),
+        ),
+      ),
+    );
+  }
+
   void _handleMapTap(LatLng point) {
     if (_isAoiMode) {
       _handleAoiTap(point);
@@ -280,6 +331,24 @@ class _MapViewState extends ConsumerState<MapView> {
           100) {
         ref.read(selectedWaterBodyProvider.notifier).state = body;
         ref.read(selectedAoiProvider.notifier).state = null;
+        return;
+      }
+    }
+    for (final mountain in mountainRanges) {
+      if (_calculateDistance(point.latitude, point.longitude, mountain.latitude,
+              mountain.longitude) <
+          150) {
+        ref.read(selectedWaterBodyProvider.notifier).state = null;
+        ref.read(selectedAoiProvider.notifier).state = AoiSelection(
+          label: mountain.name,
+          bbox: AoiBounds(
+            west: mountain.longitude - 2.0,
+            south: mountain.latitude - 2.0,
+            east: mountain.longitude + 2.0,
+            north: mountain.latitude + 2.0,
+          ),
+        );
+        _mapController.move(LatLng(mountain.latitude, mountain.longitude), 6);
         return;
       }
     }
@@ -305,6 +374,19 @@ class _MapViewState extends ConsumerState<MapView> {
         SnackBar(
           content: Text(
             'Draw a larger region for AOI screening.',
+            style: GoogleFonts.inter(color: Colors.white),
+          ),
+          backgroundColor: const Color(0xFF0D1B2A),
+        ),
+      );
+      return;
+    }
+
+    if ((east - west) > 1.2 || (north - south) > 1.2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'AOI is too large. Keep it below 1.2 degrees per side.',
             style: GoogleFonts.inter(color: Colors.white),
           ),
           backgroundColor: const Color(0xFF0D1B2A),
